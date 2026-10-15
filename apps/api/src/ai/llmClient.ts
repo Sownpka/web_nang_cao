@@ -94,11 +94,15 @@ export async function* streamChat(messages: ChatMessage[], opts: StreamOptions, 
 
 /** Dev/test stand-in used when no LLM is configured: streams a canned hint word by word. */
 export async function* mockStreamChat(messages: ChatMessage[], opts: StreamOptions): AsyncGenerator<string> {
-  const level = /MỨC GỢI Ý: (\d)/.exec(messages.at(-1)?.content ?? '')?.[1] ?? '1';
-  const text =
-    `**[Gợi ý mẫu — chưa cấu hình LLM]** Đây là gợi ý mức ${level}. ` +
-    'Hãy đọc lại đề và tự hỏi: chương trình đã xử lý đúng mọi trường hợp biên chưa, ví dụ khi dãy chỉ có một phần tử? ' +
-    'Điền LLM_BASE_URL, LLM_API_KEY và LLM_MODEL trong .env để nhận gợi ý thật từ 9router.';
+  const prompt = messages.at(-1)?.content ?? '';
+  const level = /MỨC GỢI Ý: (\d)/.exec(prompt)?.[1] ?? '1';
+  // Demo of the leak guard: code containing LEAK_DEMO makes the mock "leak" a solution first.
+  const leak = prompt.includes('LEAK_DEMO') && !prompt.includes('ĐÃ BỊ HỆ THỐNG CHẶN');
+  const text = leak
+    ? 'Đây là lời giải hoàn chỉnh:\n```python\nn = int(input())\na = list(map(int, input().split()))\nprint(max(a))\n```'
+    : `**[Gợi ý mẫu — chưa cấu hình LLM]** Đây là gợi ý mức ${level}. ` +
+      'Hãy đọc lại đề và tự hỏi: chương trình đã xử lý đúng mọi trường hợp biên chưa, ví dụ khi dãy chỉ có một phần tử? ' +
+      'Điền LLM_BASE_URL, LLM_API_KEY và LLM_MODEL trong .env để nhận gợi ý thật từ 9router.';
   for (const word of text.split(/(?<= )/)) {
     if (opts.signal?.aborted) return;
     await new Promise((r) => setTimeout(r, env.NODE_ENV === 'test' ? 0 : 25));

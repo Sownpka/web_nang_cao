@@ -162,7 +162,17 @@ export const vi = {
     level: (n: number) => `Mức ${n}`,
     open: (n: number, pct: number) => `Mở gợi ý mức ${n} (−${pct}% điểm)`,
     lockedHint: (n: number) => `Mở mức ${n} trước`,
-    thinking: 'Trợ giảng đang đọc code của bạn…',
+    phase: {
+      generating: (chars: number) =>
+        chars > 0 ? `Trợ giảng đang viết gợi ý… (${chars} ký tự)` : 'Trợ giảng đang đọc code của bạn…',
+      checking: (_chars: number) => 'Đang kiểm tra để chắc chắn gợi ý không lộ lời giải…',
+      rewriting: (_chars: number) => 'Bản nháp đầu chứa code nên bị chặn — trợ giảng đang viết lại…',
+    },
+    rewritten: 'Gợi ý này đã được hệ thống kiểm duyệt và viết lại để không lộ lời giải.',
+    penaltyStatus: (n: number, pct: number, solved: boolean) =>
+      `Bạn đã mở ${n} mức gợi ý cho bài này${solved ? ' trước khi AC' : ''} — điểm tối đa còn ${pct}%.`,
+    quota: (left: number, limit: number) => `Còn ${left}/${limit} lượt gợi ý hôm nay`,
+    quotaOut: 'Bạn đã hết lượt gợi ý hôm nay.',
     retry: 'Thử lại',
     penaltyNote: (pct: number) => `Mỗi mức mở trước khi AC trừ ${pct}% điểm bài (còn tối thiểu 50%).`,
     noneForStaff: 'Sinh viên chưa mở gợi ý nào cho bài nộp này.',

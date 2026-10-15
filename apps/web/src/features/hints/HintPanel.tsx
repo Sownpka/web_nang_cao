@@ -40,6 +40,7 @@ export function HintPanel({ submissionId, compact }: { submissionId: string; com
   if (isError || !data) return null;
 
   const opened = new Map(data.hints.map((h) => [h.level, h]));
+  const quotaLeft = data.quota ? Math.max(0, data.quota.limit - data.quota.used) : Infinity;
   const readOnly = data.blockedReason === 'NOT_OWNER';
   if (data.blockedReason && !readOnly && data.hints.length === 0) {
     return (
@@ -62,12 +63,20 @@ export function HintPanel({ submissionId, compact }: { submissionId: string; com
         </h3>
         {!readOnly && <p className="text-xs text-muted-foreground">{t.penaltyNote(penalty)}</p>}
       </div>
+      {(data.penalty.hintsUsed > 0 || data.quota) && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {data.penalty.hintsUsed > 0 && (
+            <span>{t.penaltyStatus(data.penalty.hintsUsed, Math.round(data.penalty.multiplier * 100), data.penalty.solved)}</span>
+          )}
+          {data.quota && <span className={cn(quotaLeft === 0 && 'text-destructive')}>{t.quota(quotaLeft, data.quota.limit)}</span>}
+        </div>
+      )}
 
       <ol className="space-y-2">
         {HINT_LEVELS.map((level) => {
           const hint = opened.get(level);
-          const streaming = stream.level === level;
-          const isNext = data.nextLevel === level && !stream.streaming;
+          const streaming = stream.level === level && !hint;
+          const isNext = data.nextLevel === level && !stream.streaming && quotaLeft > 0;
           if (readOnly && !hint) return null;
           const state = hint ? 'open' : streaming ? 'streaming' : isNext ? 'next' : 'locked';
 
@@ -76,6 +85,7 @@ export function HintPanel({ submissionId, compact }: { submissionId: string; com
               <LevelHeader level={level} state={state} />
 
               {hint && <Markdown className="mt-2 pl-10">{hint.content}</Markdown>}
+              {hint?.blocked && <p className="mt-1 pl-10 text-xs text-muted-foreground italic">{t.rewritten}</p>}
 
               {streaming && (
                 <div className="mt-2 pl-10" aria-live="polite">
@@ -86,7 +96,7 @@ export function HintPanel({ submissionId, compact }: { submissionId: string; com
                   ) : !stream.error ? (
                     <p className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="size-4 animate-spin" />
-                      {t.thinking}
+                      {t.phase[stream.phase ?? 'generating'](stream.chars)}
                     </p>
                   ) : null}
                   {stream.error && (
@@ -110,6 +120,9 @@ export function HintPanel({ submissionId, compact }: { submissionId: string; com
                   >
                     {t.open(level, penalty)}
                   </Button>
+                  {data.nextLevel === level && quotaLeft === 0 && (
+                    <span className="ml-2 text-xs text-destructive">{t.quotaOut}</span>
+                  )}
                   {!isNext && data.nextLevel !== null && data.nextLevel < level && (
                     <span className="ml-2 text-xs text-muted-foreground">{t.lockedHint(data.nextLevel)}</span>
                   )}

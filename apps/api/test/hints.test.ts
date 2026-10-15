@@ -34,13 +34,15 @@ beforeAll(async () => {
   disabledProblemId = (await make(false)).id;
 });
 
-async function judged(userId: string, verdict: Verdict, pid = problemId) {
+let codeSeq = 0;
+/** Unique code by default so the cross-submission hint cache does not interfere. */
+async function judged(userId: string, verdict: Verdict, pid = problemId, code = `print(input())  # ${Date.now()}-${++codeSeq}`) {
   return prisma.submission.create({
     data: {
       userId,
       problemId: pid,
       language: 'python',
-      code: 'print(input())',
+      code,
       verdict,
       totalCount: 1,
       failedTestId: verdict === 'ACCEPTED' ? null : hiddenTestId,
@@ -87,7 +89,7 @@ describe('GET /api/hints/stream', () => {
     expect(stored?.content).toBe(done.data.content);
 
     const again = parseSse((await stream(student.auth, sub.id, 1)).body as string);
-    expect(again).toEqual([{ event: 'done', data: { level: 1, content: stored!.content, cached: true } }]);
+    expect(again).toEqual([{ event: 'done', data: { level: 1, content: stored!.content, cached: true, blocked: false } }]);
   });
 
   it('opens levels in order', async () => {

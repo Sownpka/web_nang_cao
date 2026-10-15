@@ -31,5 +31,7 @@ export function testEnv(): Record<string, string> {
     // Never call a real LLM from tests: an empty URL selects the mock provider.
     LLM_BASE_URL: '',
     LLM_MODEL: '',
+    // Small so the quota test does not need dozens of requests.
+    HINT_DAILY_LIMIT: '3',
   };
 }
