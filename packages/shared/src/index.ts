@@ -4,3 +4,4 @@ export * from './events.js';
 export * from './auth.js';
 export * from './problems.js';
 export * from './submissions.js';
+export * from './hints.js';

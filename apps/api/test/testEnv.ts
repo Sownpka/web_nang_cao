@@ -28,5 +28,8 @@ export function testEnv(): Record<string, string> {
     REDIS_URL: redisUrl.toString(),
     JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdef0123',
     JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdef012',
+    // Never call a real LLM from tests: an empty URL selects the mock provider.
+    LLM_BASE_URL: '',
+    LLM_MODEL: '',
   };
 }

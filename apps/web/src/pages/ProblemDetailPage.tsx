@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useProblem } from '@/features/problems/api';
+import { HintPanel } from '@/features/hints/HintPanel';
 import { useCodeDraft } from '@/features/problems/codeDraft';
 import { useSocketConnected } from '@/features/realtime/SocketProvider';
 import { useSampleRun } from '@/features/runs/api';
@@ -251,7 +252,14 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
           )}
           {tab === 'result' &&
             (submission.data ? (
-              <ResultPanel submission={submission.data} />
+              <div className="space-y-4">
+                <ResultPanel submission={submission.data} />
+                {isFinal(submission.data) && submission.data.verdict !== 'ACCEPTED' && (
+                  <div className="border-t pt-4">
+                    <HintPanel submissionId={submission.data.id} compact />
+                  </div>
+                )}
+              </div>
             ) : submission.isError ? (
               <p className="text-sm text-destructive">{vi.submission.loadError}</p>
             ) : (

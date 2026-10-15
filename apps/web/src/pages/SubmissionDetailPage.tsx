@@ -1,10 +1,11 @@
-import { ArrowLeft, Check, Copy, ExternalLink, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LANGUAGE_LABELS } from '@judgehint/shared';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useSubmission } from '@/features/submissions/api';
+import { HintPanel } from '@/features/hints/HintPanel';
+import { isFinal, useSubmission } from '@/features/submissions/api';
 import { ResultPanel } from '@/features/submissions/ResultPanel';
 import { vi } from '@/i18n/vi';
 import { ApiError } from '@/lib/api';
@@ -73,10 +74,11 @@ export function SubmissionDetailPage() {
           <div className="rounded-xl border p-4">
             <ResultPanel submission={s} />
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-            <Sparkles className="size-4 shrink-0" />
-            {t.hintsSoon}
-          </div>
+          {isFinal(s) && (
+            <div className="rounded-xl border p-4">
+              <HintPanel submissionId={s.id} />
+            </div>
+          )}
         </div>
 
         <div className="overflow-hidden rounded-xl border">

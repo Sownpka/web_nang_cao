@@ -15,9 +15,14 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'must be at least 32 characters'),
   ACCESS_TOKEN_TTL_SEC: z.coerce.number().int().positive().default(15 * 60),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
-  LLM_BASE_URL: z.string().default(''),
+  /** OpenAI-compatible base URL including the version, e.g. http://host:20128/v1 (9router). */
+  LLM_BASE_URL: z
+    .string()
+    .default('')
+    .transform((s) => s.trim().replace(/\/+$/, '')),
   LLM_API_KEY: z.string().default(''),
   LLM_MODEL: z.string().default(''),
+  LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   HINT_DAILY_LIMIT: z.coerce.number().int().positive().default(20),
 });
 
