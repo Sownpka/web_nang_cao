@@ -1,34 +1,59 @@
-import { mkdir } from 'node:fs/promises';
-import Docker from 'dockerode';
 import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { prisma } from '@judgehint/db';
 import { QUEUE_SUBMISSIONS, type SubmissionJobData } from '@judgehint/shared';
 import { env } from './config.js';
+import { docker } from './docker.js';
+import { judgeSubmission, markSystemError, redisPublisher } from './judgeSubmission.js';
 import { logger } from './logger.js';
+import { LANGUAGES } from './runner/languages.js';
+import { removeLeftoverContainers } from './runner/dockerRunner.js';
 
-const docker = new Docker();
 // BullMQ workers require maxRetriesPerRequest = null on their connection.
 const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+// Publishing needs its own connection: the worker connection blocks on queue reads.
+const publisherConnection = new Redis(env.REDIS_URL);
+const publish = redisPublisher(publisherConnection);
 
-async function checkDocker() {
+async function checkSandbox() {
   try {
     const info = await docker.version();
     logger.info(`Docker daemon reachable (engine ${info.Version})`);
   } catch (err) {
     logger.warn({ err: (err as Error).message }, 'Docker daemon not reachable — judging will fail until it is up');
+    return;
   }
+  for (const spec of Object.values(LANGUAGES)) {
+    try {
+      await docker.getImage(spec!.image).inspect();
+    } catch {
+      logger.warn(`Sandbox image ${spec!.image} missing — run \`pnpm build:sandbox\``);
+    }
+  }
+  const removed = await removeLeftoverContainers().catch(() => 0);
+  if (removed) logger.info(`Removed ${removed} leftover sandbox container(s)`);
 }
 
 async function main() {
-  await mkdir(env.JUDGE_WORKDIR, { recursive: true });
-  await checkDocker();
+  await checkSandbox();
 
   const worker = new Worker<SubmissionJobData>(
     QUEUE_SUBMISSIONS,
     async (job) => {
-      // Real sandbox judging lands in week 4 (runner/dockerRunner.ts).
-      logger.info({ submissionId: job.data.submissionId }, 'received submission (judge not implemented yet)');
+      const { submissionId } = job.data;
+      try {
+        await judgeSubmission(submissionId, publish);
+      } catch (err) {
+        const attempts = job.opts.attempts ?? 1;
+        // Infrastructure failure: let BullMQ retry, and give up with SYSTEM_ERROR on the last attempt.
+        if (job.attemptsMade + 1 >= attempts) {
+          await markSystemError(submissionId, (err as Error).message, publish).catch((e: Error) =>
+            logger.error({ submissionId, err: e.message }, 'could not mark SYSTEM_ERROR'),
+          );
+          return;
+        }
+        throw err;
+      }
     },
     { connection, concurrency: env.JUDGE_CONCURRENCY },
   );
@@ -36,18 +61,23 @@ async function main() {
   worker.on('ready', () =>
     logger.info(`Listening on queue "${QUEUE_SUBMISSIONS}" with concurrency ${env.JUDGE_CONCURRENCY}`),
   );
-  worker.on('failed', (job, err) => logger.error({ jobId: job?.id, err: err.message }, 'job failed'));
+  worker.on('failed', (job, err) =>
+    logger.warn({ jobId: job?.id, attempt: job?.attemptsMade, err: err.message }, 'judge attempt failed, will retry'),
+  );
   worker.on('error', (err) => logger.error({ err: err.message }, 'worker error'));
 
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received, draining worker`);
     await worker.close();
-    await Promise.allSettled([connection.quit(), prisma.$disconnect()]);
+    await Promise.allSettled([connection.quit(), publisherConnection.quit(), prisma.$disconnect()]);
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
+
+// One bad job must never take the worker down.
+process.on('unhandledRejection', (reason) => logger.error({ reason }, 'unhandled rejection'));
 
 main().catch((err) => {
   logger.fatal({ err }, 'worker failed to start');

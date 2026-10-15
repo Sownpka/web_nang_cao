@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Clock, Copy, Cpu, Loader2, Pencil, Play, RotateCcw, Send, Sparkles } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { LANGUAGE_LABELS, type ProblemDetail, type SampleTest } from '@judgehint/shared';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { Markdown } from '@/components/Markdown';
@@ -8,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { useProblem } from '@/features/problems/api';
 import { useCodeDraft } from '@/features/problems/codeDraft';
+import { isFinal, useSubmission, useSubmitCode } from '@/features/submissions/api';
+import { ResultPanel } from '@/features/submissions/ResultPanel';
 import { vi } from '@/i18n/vi';
 import { ApiError } from '@/lib/api';
 
@@ -100,6 +103,19 @@ function Statement({ problem }: { problem: ProblemDetail }) {
 
 function Workspace({ problem }: { problem: ProblemDetail }) {
   const { language, setLanguage, code, setCode, reset } = useCodeDraft(problem.id, problem.allowedLanguages);
+  const submit = useSubmitCode();
+  const [submissionId, setSubmissionId] = useState<string>();
+  const submission = useSubmission(submissionId);
+  const busy = submit.isPending || (!!submissionId && !isFinal(submission.data));
+
+  const onSubmit = async () => {
+    try {
+      const res = await submit.mutateAsync({ problemId: problem.id, language, code });
+      setSubmissionId(res.submissionId);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : String(err));
+    }
+  };
 
   return (
     <div className="flex flex-col border-t lg:h-full lg:min-h-0 lg:border-t-0 lg:border-l">
@@ -126,12 +142,12 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
           <RotateCcw />
         </Button>
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm" disabled title={vi.problem.judgeComingSoon}>
+          <Button variant="secondary" size="sm" disabled title={vi.problem.runComingSoon}>
             <Play />
             {vi.problem.run}
           </Button>
-          <Button size="sm" disabled title={vi.problem.judgeComingSoon}>
-            <Send />
+          <Button size="sm" onClick={onSubmit} disabled={busy || !code.trim()}>
+            {busy ? <Loader2 className="animate-spin" /> : <Send />}
             {vi.problem.submit}
           </Button>
         </div>
@@ -152,8 +168,8 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
         </div>
       </div>
 
-      <div className="border-t px-4 py-3">
-        <div className="flex items-center justify-between">
+      <div className="border-t px-4 py-3 lg:max-h-[45%] lg:overflow-y-auto">
+        <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{vi.problem.result}</h2>
           {!problem.aiHintsEnabled && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -162,8 +178,13 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{vi.problem.resultEmpty}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{vi.problem.judgeComingSoon}</p>
+        {submission.data ? (
+          <ResultPanel submission={submission.data} />
+        ) : submission.isError ? (
+          <p className="text-sm text-destructive">{vi.submission.loadError}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">{submissionId ? vi.submission.queued : vi.problem.resultEmpty}</p>
+        )}
       </div>
     </div>
   );

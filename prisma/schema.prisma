@@ -59,13 +59,13 @@ model User {
 
 /// Opaque refresh tokens (only the SHA-256 hash is stored). Rotated on every refresh.
 model RefreshToken {
-  id         String    @id @default(cuid())
-  userId     String
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  userAgent  String?
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  userAgent String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -162,21 +162,25 @@ model AssignmentProblem {
 }
 
 model Submission {
-  id           String   @id @default(cuid())
-  userId       String
-  problemId    String
-  assignmentId String?
-  language     Language
-  code         String
-  verdict      Verdict  @default(PENDING)
-  passedCount  Int      @default(0)
-  totalCount   Int      @default(0)
-  failedTestId String?
-  runtimeMs    Int?
-  memoryKb     Int?
-  stderr       String?
-  createdAt    DateTime @default(now())
-  judgedAt     DateTime?
+  id              String    @id @default(cuid())
+  userId          String
+  problemId       String
+  assignmentId    String?
+  language        Language
+  code            String
+  verdict         Verdict   @default(PENDING)
+  passedCount     Int       @default(0)
+  totalCount      Int       @default(0)
+  failedTestId    String?
+  /// 0-based position of the failing test in judge order.
+  failedTestIndex Int?
+  /// First 4KB of stdout on the failing test (shown only when that test is public).
+  actualOutput    String?
+  runtimeMs       Int?
+  memoryKb        Int?
+  stderr          String?
+  createdAt       DateTime  @default(now())
+  judgedAt        DateTime?
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem    Problem     @relation(fields: [problemId], references: [id], onDelete: Cascade)

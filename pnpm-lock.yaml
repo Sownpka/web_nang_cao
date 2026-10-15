@@ -44,6 +44,9 @@ importers:
       bcryptjs:
         specifier: 3.0.3
         version: 3.0.3
+      bullmq:
+        specifier: 5.81.5
+        version: 5.81.5
       cookie-parser:
         specifier: 1.4.7
         version: 1.4.7

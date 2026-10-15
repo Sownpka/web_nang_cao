@@ -20,7 +20,8 @@ export default async function setup() {
   });
 
   const redis = new Redis(env.REDIS_URL!);
-  const keys = await redis.keys('rl:*');
+  // Rate-limit counters and queued jobs from earlier runs (no worker consumes the test DB).
+  const keys = [...(await redis.keys('rl:*')), ...(await redis.keys('bull:*'))];
   if (keys.length) await redis.del(...keys);
   await redis.quit();
 }

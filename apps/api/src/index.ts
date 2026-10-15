@@ -3,6 +3,7 @@ import { prisma } from '@judgehint/db';
 import { createApp } from './app.js';
 import { env } from './config.js';
 import { logger } from './lib/logger.js';
+import { closeQueues } from './lib/queue.js';
 import { redis } from './lib/redis.js';
 
 const app = createApp();
@@ -18,7 +19,7 @@ async function shutdown(signal: string) {
   shuttingDown = true;
   logger.info(`${signal} received, shutting down`);
   server.close();
-  await Promise.allSettled([prisma.$disconnect(), redis.quit()]);
+  await Promise.allSettled([prisma.$disconnect(), redis.quit(), closeQueues()]);
   process.exit(0);
 }
 

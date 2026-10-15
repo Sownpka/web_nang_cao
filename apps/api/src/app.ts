@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { problemsRouter } from './modules/problems/problems.routes.js';
+import { submissionsRouter } from './modules/submissions/submissions.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 
 export function createApp() {
@@ -31,6 +32,7 @@ export function createApp() {
   api.use('/auth', authRouter);
   api.use('/me', meRouter);
   api.use('/problems', problemsRouter);
+  api.use('/submissions', submissionsRouter);
   app.use('/api', api);
 
   app.use(notFoundHandler);

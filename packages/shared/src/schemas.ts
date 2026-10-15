@@ -15,6 +15,8 @@ export const createSubmissionSchema = z.object({
   code: z
     .string()
     .min(1, 'Code không được để trống')
-    .refine((s) => new TextEncoder().encode(s).length <= MAX_CODE_BYTES, 'Code vượt quá 64KB'),
+    .refine((s) => new TextEncoder().encode(s).length <= MAX_CODE_BYTES, 'Code vượt quá 64KB')
+    // The sandbox passes code through an environment variable, which cannot hold NUL.
+    .refine((s) => !s.includes('\0'), 'Code chứa ký tự không hợp lệ'),
 });
 export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;
