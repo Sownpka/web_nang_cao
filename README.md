@@ -40,7 +40,7 @@ Tài khoản demo (chỉ dùng cho dev) được liệt kê ở đầu [seed/ind
 | Lệnh | Việc |
 |---|---|
 | `pnpm typecheck` | Kiểm tra kiểu toàn bộ workspace |
-| `pnpm test` | Chạy Vitest |
+| `pnpm test` | Chạy Vitest (test API dùng DB riêng `judgehint_test` + Redis DB 1, tự migrate) |
 | `pnpm db:studio` | Mở Prisma Studio |
 | `pnpm db:reset` | Xóa sạch DB, migrate lại và seed |
 | `pnpm db:down` | Tắt Postgres/Redis |

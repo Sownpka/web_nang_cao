@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { vi } from '@/i18n/vi';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +53,12 @@ export function HomePage() {
         <p className="text-sm font-medium text-primary">{vi.tagline}</p>
         <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">{vi.home.heading}</h1>
         <p className="max-w-xl text-lg text-muted-foreground text-pretty">{vi.home.intro}</p>
+        <Button size="lg" asChild>
+          <Link to="/problems">
+            {vi.home.start}
+            <ArrowRight />
+          </Link>
+        </Button>
       </div>
 
       <div className="rounded-xl border bg-card p-5 text-card-foreground">

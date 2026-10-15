@@ -1,17 +1,45 @@
 import { Code2 } from 'lucide-react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import type { Role } from '@judgehint/shared';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { vi } from '@/i18n/vi';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+const navItems: { to: string; label: string; roles?: Role[] }[] = [
   { to: '/problems', label: vi.nav.problems },
   { to: '/submissions', label: vi.nav.submissions },
   { to: '/leaderboard', label: vi.nav.leaderboard },
+  { to: '/teacher', label: vi.nav.teacher, roles: ['TEACHER', 'ADMIN'] },
 ];
 
 export function Layout() {
+  const { user, status } = useAuth();
+  const { pathname } = useLocation();
+  const onAuthPage = pathname === '/login' || pathname === '/register';
+  const visible = navItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+
+  const nav = (
+    <>
+      {visible.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) =>
+            cn(
+              'shrink-0 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground',
+              isActive && 'bg-accent text-foreground',
+            )
+          }
+        >
+          {item.label}
+        </NavLink>
+      ))}
+    </>
+  );
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
@@ -22,29 +50,22 @@ export function Layout() {
             </span>
             {vi.appName}
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground',
-                    isActive && 'bg-accent text-foreground',
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          {user && <nav className="hidden items-center gap-1 md:flex">{nav}</nav>}
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Button size="sm" asChild>
-              <Link to="/login">{vi.nav.login}</Link>
-            </Button>
+            {user ? (
+              <UserMenu user={user} />
+            ) : (
+              status === 'guest' &&
+              !onAuthPage && (
+                <Button size="sm" asChild>
+                  <Link to="/login">{vi.nav.login}</Link>
+                </Button>
+              )
+            )}
           </div>
         </div>
+        {user && <nav className="flex gap-1 overflow-x-auto border-t px-4 py-1.5 md:hidden">{nav}</nav>}
       </header>
       <main className="flex-1">
         <Outlet />

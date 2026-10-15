@@ -50,10 +50,26 @@ model User {
   role         Role     @default(STUDENT)
   createdAt    DateTime @default(now())
 
-  enrollments       Enrollment[]
-  submissions       Submission[]
-  teachingClassrooms Classroom[] @relation("ClassroomTeacher")
-  authoredProblems  Problem[]    @relation("ProblemAuthor")
+  enrollments        Enrollment[]
+  submissions        Submission[]
+  teachingClassrooms Classroom[]    @relation("ClassroomTeacher")
+  authoredProblems   Problem[]      @relation("ProblemAuthor")
+  refreshTokens      RefreshToken[]
+}
+
+/// Opaque refresh tokens (only the SHA-256 hash is stored). Rotated on every refresh.
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Classroom {
