@@ -7,12 +7,18 @@ import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { Markdown } from '@/components/Markdown';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useProblem } from '@/features/problems/api';
 import { useCodeDraft } from '@/features/problems/codeDraft';
+import { useSocketConnected } from '@/features/realtime/SocketProvider';
+import { useSampleRun } from '@/features/runs/api';
+import { RunPanel } from '@/features/runs/RunPanel';
 import { isFinal, useSubmission, useSubmitCode } from '@/features/submissions/api';
+import { ProblemSubmissionList } from '@/features/submissions/ProblemSubmissionList';
 import { ResultPanel } from '@/features/submissions/ResultPanel';
 import { vi } from '@/i18n/vi';
 import { ApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const CodeEditor = lazy(() => import('@/components/CodeEditor'));
 
@@ -101,21 +107,46 @@ function Statement({ problem }: { problem: ProblemDetail }) {
   );
 }
 
+type PanelTab = 'run' | 'result' | 'history';
+
 function Workspace({ problem }: { problem: ProblemDetail }) {
   const { language, setLanguage, code, setCode, reset } = useCodeDraft(problem.id, problem.allowedLanguages);
   const submit = useSubmitCode();
   const [submissionId, setSubmissionId] = useState<string>();
   const submission = useSubmission(submissionId);
-  const busy = submit.isPending || (!!submissionId && !isFinal(submission.data));
+  const sampleRun = useSampleRun(problem.id);
+  const live = useSocketConnected();
+  const [tab, setTab] = useState<PanelTab>('run');
+  const [useCustom, setUseCustom] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const judging = submit.isPending || (!!submissionId && !isFinal(submission.data));
+
+  const fail = (err: unknown) => toast.error(err instanceof ApiError ? err.message : String(err));
 
   const onSubmit = async () => {
+    setTab('result');
     try {
       const res = await submit.mutateAsync({ problemId: problem.id, language, code });
       setSubmissionId(res.submissionId);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : String(err));
+      fail(err);
     }
   };
+
+  const onRun = async () => {
+    setTab('run');
+    try {
+      await sampleRun.start.mutateAsync({ language, code, customInput: useCustom ? customInput : undefined });
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const tabs: { key: PanelTab; label: string }[] = [
+    { key: 'run', label: vi.workspace.tabRun },
+    { key: 'result', label: vi.workspace.tabResult },
+    { key: 'history', label: vi.workspace.tabHistory },
+  ];
 
   return (
     <div className="flex flex-col border-t lg:h-full lg:min-h-0 lg:border-t-0 lg:border-l">
@@ -142,12 +173,12 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
           <RotateCcw />
         </Button>
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm" disabled title={vi.problem.runComingSoon}>
-            <Play />
+          <Button variant="secondary" size="sm" onClick={onRun} disabled={sampleRun.running || !code.trim()}>
+            {sampleRun.running ? <Loader2 className="animate-spin" /> : <Play />}
             {vi.problem.run}
           </Button>
-          <Button size="sm" onClick={onSubmit} disabled={busy || !code.trim()}>
-            {busy ? <Loader2 className="animate-spin" /> : <Send />}
+          <Button size="sm" onClick={onSubmit} disabled={judging || !code.trim()}>
+            {judging ? <Loader2 className="animate-spin" /> : <Send />}
             {vi.problem.submit}
           </Button>
         </div>
@@ -168,23 +199,66 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
         </div>
       </div>
 
-      <div className="border-t px-4 py-3 lg:max-h-[45%] lg:overflow-y-auto">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{vi.problem.result}</h2>
-          {!problem.aiHintsEnabled && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Sparkles className="size-3.5" />
-              {vi.problem.aiHintsOff}
+      <div className="flex flex-col border-t lg:h-[45%] lg:min-h-0">
+        <div className="flex items-center gap-1 border-b px-2" role="tablist">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                '-mb-px border-b-2 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground',
+                tab === t.key ? 'border-primary text-foreground' : 'border-transparent',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-3 pr-2 text-xs text-muted-foreground">
+            {!problem.aiHintsEnabled && (
+              <span className="hidden items-center gap-1 sm:flex">
+                <Sparkles className="size-3.5" />
+                {vi.problem.aiHintsOff}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5" data-live={live} title={live ? vi.workspace.liveHint : vi.workspace.offlineHint}>
+              <span className={cn('size-2 rounded-full', live ? 'bg-emerald-500' : 'animate-pulse bg-amber-500')} />
+              {live ? vi.workspace.live : vi.workspace.offline}
             </span>
-          )}
+          </div>
         </div>
-        {submission.data ? (
-          <ResultPanel submission={submission.data} />
-        ) : submission.isError ? (
-          <p className="text-sm text-destructive">{vi.submission.loadError}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">{submissionId ? vi.submission.queued : vi.problem.resultEmpty}</p>
-        )}
+
+        <div className="px-4 py-3 lg:flex-1 lg:overflow-y-auto" role="tabpanel">
+          {tab === 'run' && (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" className="size-4" checked={useCustom} onChange={(e) => setUseCustom(e.target.checked)} />
+                {vi.run.useCustom}
+              </label>
+              {useCustom && (
+                <Textarea
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder={vi.run.customPlaceholder}
+                  className="h-24 font-mono text-xs"
+                  spellCheck={false}
+                />
+              )}
+              <RunPanel result={sampleRun.result} running={sampleRun.running} />
+            </div>
+          )}
+          {tab === 'result' &&
+            (submission.data ? (
+              <ResultPanel submission={submission.data} />
+            ) : submission.isError ? (
+              <p className="text-sm text-destructive">{vi.submission.loadError}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{submissionId ? vi.submission.queued : vi.problem.resultEmpty}</p>
+            ))}
+          {tab === 'history' && <ProblemSubmissionList problemId={problem.id} />}
+        </div>
       </div>
     </div>
   );

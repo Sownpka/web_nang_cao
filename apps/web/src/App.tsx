@@ -11,6 +11,8 @@ import { RegisterPage } from '@/pages/RegisterPage';
 // Heavier pages (markdown, Monaco) are split out of the main bundle.
 const ProblemDetailPage = lazy(() => import('@/pages/ProblemDetailPage').then((m) => ({ default: m.ProblemDetailPage })));
 const ProblemEditorPage = lazy(() => import('@/pages/teacher/ProblemEditorPage').then((m) => ({ default: m.ProblemEditorPage })));
+const SubmissionsPage = lazy(() => import('@/pages/SubmissionsPage').then((m) => ({ default: m.SubmissionsPage })));
+const SubmissionDetailPage = lazy(() => import('@/pages/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })));
 const TeacherProblemsPage = lazy(() => import('@/pages/teacher/TeacherProblemsPage').then((m) => ({ default: m.TeacherProblemsPage })));
 
 const STAFF = ['TEACHER', 'ADMIN'] as const;
@@ -35,6 +37,22 @@ export function App() {
           element={
             <RequireAuth>
               <ProblemDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="submissions"
+          element={
+            <RequireAuth>
+              <SubmissionsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="submissions/:id"
+          element={
+            <RequireAuth>
+              <SubmissionDetailPage />
             </RequireAuth>
           }
         />

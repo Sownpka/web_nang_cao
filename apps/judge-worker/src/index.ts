@@ -1,16 +1,18 @@
 import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { prisma } from '@judgehint/db';
-import { QUEUE_SUBMISSIONS, type SubmissionJobData } from '@judgehint/shared';
+import { QUEUE_RUNS, QUEUE_SUBMISSIONS, type RunJobData, type SubmissionJobData } from '@judgehint/shared';
 import { env } from './config.js';
 import { docker } from './docker.js';
 import { judgeSubmission, markSystemError, redisPublisher } from './judgeSubmission.js';
 import { logger } from './logger.js';
 import { LANGUAGES } from './runner/languages.js';
 import { removeLeftoverContainers } from './runner/dockerRunner.js';
+import { processRun } from './runSamples.js';
 
 // BullMQ workers require maxRetriesPerRequest = null on their connection.
 const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+const runsConnection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 // Publishing needs its own connection: the worker connection blocks on queue reads.
 const publisherConnection = new Redis(env.REDIS_URL);
 const publish = redisPublisher(publisherConnection);
@@ -66,10 +68,17 @@ async function main() {
   );
   worker.on('error', (err) => logger.error({ err: err.message }, 'worker error'));
 
+  // "Chạy thử" jobs: one at a time so sample runs never starve real submissions.
+  const runsWorker = new Worker<RunJobData>(QUEUE_RUNS, (job) => processRun(job.data, publisherConnection, publish), {
+    connection: runsConnection,
+    concurrency: 1,
+  });
+  runsWorker.on('error', (err) => logger.error({ err: err.message }, 'runs worker error'));
+
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received, draining worker`);
-    await worker.close();
-    await Promise.allSettled([connection.quit(), publisherConnection.quit(), prisma.$disconnect()]);
+    await Promise.allSettled([worker.close(), runsWorker.close()]);
+    await Promise.allSettled([connection.quit(), runsConnection.quit(), publisherConnection.quit(), prisma.$disconnect()]);
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

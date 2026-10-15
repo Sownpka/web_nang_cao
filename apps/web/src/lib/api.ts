@@ -39,6 +39,8 @@ export function onSessionChange(fn: SessionListener): () => void {
   return () => listeners.delete(fn);
 }
 
+export const getAccessToken = () => accessToken;
+
 export function setSession(session: AuthResponse | null) {
   accessToken = session?.accessToken ?? null;
   listeners.forEach((fn) => fn(session));

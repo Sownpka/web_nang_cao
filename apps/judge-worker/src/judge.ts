@@ -52,13 +52,21 @@ export function tail(text: string, bytes: number): string {
   return buf.length <= bytes ? text : buf.subarray(buf.length - bytes).toString('utf8').replace(/^�+/, '');
 }
 
-/** Classifies a single run. Order matters: a killed program is TLE even if it also hit memory limits. */
-export function classifyRun(run: RunResult, expected: string, timeLimitMs: number): Verdict {
+/**
+ * TLE / MLE / RE, or null if the program ran cleanly. Order matters: a killed program is TLE even
+ * if it also hit memory limits.
+ */
+export function classifyExecution(run: RunResult, timeLimitMs: number): Verdict | null {
   const time = run.cpuMs ?? run.wallMs;
   if (run.timedOut || time > timeLimitMs) return Verdict.TIME_LIMIT_EXCEEDED;
   if (run.oomKilled || MEMORY_ERROR_PATTERNS.some((re) => re.test(run.stderr))) return Verdict.MEMORY_LIMIT_EXCEEDED;
   if (run.exitCode !== 0) return Verdict.RUNTIME_ERROR;
-  return outputsMatch(run.stdout, expected) ? Verdict.ACCEPTED : Verdict.WRONG_ANSWER;
+  return null;
+}
+
+/** Classifies a single run against the expected output. */
+export function classifyRun(run: RunResult, expected: string, timeLimitMs: number): Verdict {
+  return classifyExecution(run, timeLimitMs) ?? (outputsMatch(run.stdout, expected) ? Verdict.ACCEPTED : Verdict.WRONG_ANSWER);
 }
 
 type Runner = (opts: RunOptions) => Promise<RunResult>;

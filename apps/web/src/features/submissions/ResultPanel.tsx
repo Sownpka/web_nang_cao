@@ -1,9 +1,8 @@
 import { Clock, Cpu } from 'lucide-react';
-import type { SubmissionDetail } from '@judgehint/shared';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { vi } from '@/i18n/vi';
 import { cn } from '@/lib/utils';
-import { isFinal } from './api';
+import { isFinal, type SubmissionView } from './api';
 
 const t = vi.submission;
 
@@ -23,9 +22,11 @@ function Block({ label, text, tone }: { label: string; text: string; tone?: 'bad
   );
 }
 
-export function ResultPanel({ submission }: { submission: SubmissionDetail }) {
+export function ResultPanel({ submission }: { submission: SubmissionView }) {
   const done = isFinal(submission);
   const progress = submission.totalCount ? (submission.passedCount / submission.totalCount) * 100 : 0;
+  const live = submission.progress;
+  const liveWidth = live && live.total ? Math.max((live.testIndex / live.total) * 100, 4) : null;
   const failed = submission.failedTest;
 
   return (
@@ -53,14 +54,25 @@ export function ResultPanel({ submission }: { submission: SubmissionDetail }) {
         <div
           className={cn(
             'h-full rounded-full transition-all duration-500',
-            !done && 'w-1/3 animate-pulse bg-sky-500',
+            !done && 'bg-sky-500',
+            !done && liveWidth === null && 'w-1/3 animate-pulse',
             done && (submission.verdict === 'ACCEPTED' ? 'bg-emerald-500' : 'bg-rose-500'),
           )}
-          style={done ? { width: `${Math.max(progress, submission.verdict === 'ACCEPTED' ? 100 : 4)}%` } : undefined}
+          style={
+            done
+              ? { width: `${Math.max(progress, submission.verdict === 'ACCEPTED' ? 100 : 4)}%` }
+              : liveWidth !== null
+                ? { width: `${liveWidth}%` }
+                : undefined
+          }
         />
       </div>
 
-      {!done && <p className="text-sm text-muted-foreground">{submission.verdict === 'PENDING' ? t.queued : t.judging}</p>}
+      {!done && (
+        <p className="text-sm text-muted-foreground">
+          {submission.verdict === 'PENDING' ? t.queued : live ? t.judgingTest(Math.min(live.testIndex + 1, live.total), live.total) : t.judging}
+        </p>
+      )}
 
       {done && failed && (
         <div className="space-y-2">

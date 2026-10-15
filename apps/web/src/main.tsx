@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AppToaster } from './components/AppToaster';
 import { AuthProvider } from './features/auth/AuthProvider';
+import { SocketProvider } from './features/realtime/SocketProvider';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -16,8 +17,10 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
-          <AppToaster />
+          <SocketProvider>
+            <App />
+            <AppToaster />
+          </SocketProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
