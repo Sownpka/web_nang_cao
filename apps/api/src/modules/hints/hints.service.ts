@@ -9,9 +9,9 @@ import {
   type HintState,
   type SubmissionDetail,
 } from '@judgehint/shared';
-import { checkHint, FALLBACK_HINTS } from '../../ai/leak-guard.js';
+import { checkHint, FALLBACK_HINTS, rewriteReminder } from '../../ai/leak-guard.js';
 import { resolveChatStreamer, type ChatMessage, type ChatStreamer } from '../../ai/llmClient.js';
-import { buildHintMessages, LEVEL_MAX_TOKENS, type HintContext } from '../../ai/prompts.js';
+import { buildHintMessages, LEVEL_MAX_TOKENS, LEVEL_TEMPERATURE, type HintContext } from '../../ai/prompts.js';
 import { env } from '../../config.js';
 import { HttpError } from '../../lib/httpError.js';
 import { logger } from '../../lib/logger.js';
@@ -184,10 +184,6 @@ export function hintMessages(context: HintContext) {
   return { messages: buildHintMessages(context), maxTokens: LEVEL_MAX_TOKENS[context.level] };
 }
 
-const REWRITE_REMINDER = `CÂU TRẢ LỜI TRƯỚC ĐÃ BỊ HỆ THỐNG CHẶN vì chứa code hoặc gần với lời giải.
-Viết lại gợi ý đúng mức yêu cầu CHỈ BẰNG LỜI: không khối code, không viết bất kỳ dòng code mới nào,
-không nêu biểu thức/công thức sửa lỗi. Chỉ được trích nguyên văn tối đa một dòng có sẵn trong code của sinh viên.`;
-
 async function collect(
   run: ChatStreamer,
   messages: ChatMessage[],
@@ -197,7 +193,7 @@ async function collect(
 ): Promise<string> {
   let text = '';
   let lastReport = 0;
-  for await (const chunk of run(messages, { maxTokens, signal })) {
+  for await (const chunk of run(messages, { maxTokens, temperature: LEVEL_TEMPERATURE, signal })) {
     text += chunk;
     if (onChars && text.length - lastReport >= 40) {
       lastReport = text.length;
@@ -229,15 +225,15 @@ export async function generateGuardedHint(
   onStatus('generating', 0);
   const first = await collect(run, messages, maxTokens, signal, (n) => onStatus('generating', n));
   onStatus('checking');
-  const firstVerdict = checkHint({ hint: first, ...guard });
+  const firstVerdict = checkHint({ hint: first, ...guard, level: context.level });
   if (first && firstVerdict.ok) return { content: first, blocked: false };
   logger.warn({ level: context.level, reason: firstVerdict.reason ?? 'EMPTY', detail: firstVerdict.detail }, 'hint rejected by leak guard');
 
   onStatus('rewriting', 0);
-  const retryMessages: ChatMessage[] = [messages[0]!, { role: 'user', content: `${messages[1]!.content}\n\n${REWRITE_REMINDER}` }];
+  const retryMessages: ChatMessage[] = [messages[0]!, { role: 'user', content: `${messages[1]!.content}\n\n${rewriteReminder(firstVerdict.reason)}` }];
   const second = await collect(run, retryMessages, maxTokens, signal, (n) => onStatus('rewriting', n));
   onStatus('checking');
-  const secondVerdict = checkHint({ hint: second, ...guard });
+  const secondVerdict = checkHint({ hint: second, ...guard, level: context.level });
   if (second && secondVerdict.ok) return { content: second, blocked: true };
   logger.warn({ level: context.level, reason: secondVerdict.reason ?? 'EMPTY' }, 'hint rewrite rejected, using fallback');
 
