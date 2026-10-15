@@ -1,4 +1,17 @@
 import type { Response } from 'supertest';
+import { prisma } from '@judgehint/db';
+import type { Role } from '@judgehint/shared';
+import { signAccessToken } from '../src/lib/jwt.js';
+
+/** Creates a user directly in the test DB and returns an Authorization header for it. */
+export async function createUser(role: Role) {
+  counter += 1;
+  const tag = `${role.toLowerCase()}-${Date.now()}-${counter}`;
+  const user = await prisma.user.create({
+    data: { email: `${tag}@test.local`, fullName: `Test ${role}`, passwordHash: 'x', role },
+  });
+  return { user, auth: `Bearer ${signAccessToken({ sub: user.id, role })}` };
+}
 
 let counter = 0;
 

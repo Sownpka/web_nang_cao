@@ -1,4 +1,5 @@
-import { Code2 } from 'lucide-react';
+import { Code2, Loader2 } from 'lucide-react';
+import { Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Role } from '@judgehint/shared';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,15 @@ export function Layout() {
         {user && <nav className="flex gap-1 overflow-x-auto border-t px-4 py-1.5 md:hidden">{nav}</nav>}
       </header>
       <main className="flex-1">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="grid place-items-center py-24">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

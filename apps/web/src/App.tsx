@@ -1,12 +1,17 @@
-import { Route, Routes } from 'react-router-dom';
+import { lazy } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
-import { vi } from '@/i18n/vi';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { ProblemsPage } from '@/pages/ProblemsPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+
+// Heavier pages (markdown, Monaco) are split out of the main bundle.
+const ProblemDetailPage = lazy(() => import('@/pages/ProblemDetailPage').then((m) => ({ default: m.ProblemDetailPage })));
+const ProblemEditorPage = lazy(() => import('@/pages/teacher/ProblemEditorPage').then((m) => ({ default: m.ProblemEditorPage })));
+const TeacherProblemsPage = lazy(() => import('@/pages/teacher/TeacherProblemsPage').then((m) => ({ default: m.TeacherProblemsPage })));
 
 const STAFF = ['TEACHER', 'ADMIN'] as const;
 
@@ -21,15 +26,32 @@ export function App() {
           path="problems"
           element={
             <RequireAuth>
-              <PlaceholderPage title={vi.placeholder.problemsTitle} body={vi.placeholder.problemsBody} />
+              <ProblemsPage />
             </RequireAuth>
           }
         />
         <Route
-          path="teacher/*"
+          path="problems/:slug"
+          element={
+            <RequireAuth>
+              <ProblemDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="teacher" element={<Navigate to="/teacher/problems" replace />} />
+        <Route
+          path="teacher/problems"
           element={
             <RequireAuth roles={STAFF}>
-              <PlaceholderPage title={vi.placeholder.teacherTitle} body={vi.placeholder.teacherBody} />
+              <TeacherProblemsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="teacher/problems/:id"
+          element={
+            <RequireAuth roles={STAFF}>
+              <ProblemEditorPage />
             </RequireAuth>
           }
         />

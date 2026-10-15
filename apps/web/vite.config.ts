@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    // Monaco is one ~3MB chunk, loaded only when an editor opens.
+    chunkSizeWarningLimit: 3500,
+  },
   server: {
     port: 5173,
     proxy: {

@@ -8,6 +8,7 @@ import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { problemsRouter } from './modules/problems/problems.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
 
 export function createApp() {
@@ -18,6 +19,8 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
+  // Test cases can be large; body-parser skips the second parser once a body is parsed.
+  app.use('/api/problems', express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '256kb' }));
   app.use(cookieParser());
   // Request logs never include bodies, so student code is not logged.
@@ -27,6 +30,7 @@ export function createApp() {
   api.use('/health', healthRouter);
   api.use('/auth', authRouter);
   api.use('/me', meRouter);
+  api.use('/problems', problemsRouter);
   app.use('/api', api);
 
   app.use(notFoundHandler);
