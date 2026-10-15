@@ -1,0 +1,185 @@
+// JudgeHint data model. Enums must stay in sync with packages/shared/src/enums.ts.
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../packages/db/src/generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum Language {
+  python
+  javascript
+  cpp
+}
+
+enum Verdict {
+  PENDING
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILE_ERROR
+  SYSTEM_ERROR
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  studentCode  String?  @unique
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+
+  enrollments       Enrollment[]
+  submissions       Submission[]
+  teachingClassrooms Classroom[] @relation("ClassroomTeacher")
+  authoredProblems  Problem[]    @relation("ProblemAuthor")
+}
+
+model Classroom {
+  id        String   @id @default(cuid())
+  name      String
+  joinCode  String   @unique
+  teacherId String
+  createdAt DateTime @default(now())
+
+  teacher     User         @relation("ClassroomTeacher", fields: [teacherId], references: [id])
+  enrollments Enrollment[]
+  assignments Assignment[]
+
+  @@index([teacherId])
+}
+
+model Enrollment {
+  userId      String
+  classroomId String
+  joinedAt    DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@id([userId, classroomId])
+  @@index([classroomId])
+}
+
+model Problem {
+  id                String     @id @default(cuid())
+  slug              String     @unique
+  title             String
+  statementMd       String
+  difficulty        Difficulty
+  timeLimitMs       Int        @default(2000)
+  memoryLimitMb     Int        @default(256)
+  allowedLanguages  Language[]
+  aiHintsEnabled    Boolean    @default(true)
+  referenceSolution String? // teacher-only, used by the AI leak guard
+  authorId          String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  author             User                @relation("ProblemAuthor", fields: [authorId], references: [id])
+  testCases          TestCase[]
+  submissions        Submission[]
+  assignmentProblems AssignmentProblem[]
+
+  @@index([difficulty])
+}
+
+model TestCase {
+  id        String  @id @default(cuid())
+  problemId String
+  order     Int
+  input     String
+  expected  String
+  isHidden  Boolean @default(true)
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, order])
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  classroomId String
+  title       String
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime @default(now())
+
+  classroom   Classroom           @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  problems    AssignmentProblem[]
+  submissions Submission[]
+
+  @@index([classroomId])
+}
+
+model AssignmentProblem {
+  assignmentId String
+  problemId    String
+  points       Int    @default(100)
+  order        Int    @default(0)
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  problem    Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, problemId])
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  userId       String
+  problemId    String
+  assignmentId String?
+  language     Language
+  code         String
+  verdict      Verdict  @default(PENDING)
+  passedCount  Int      @default(0)
+  totalCount   Int      @default(0)
+  failedTestId String?
+  runtimeMs    Int?
+  memoryKb     Int?
+  stderr       String?
+  createdAt    DateTime @default(now())
+  judgedAt     DateTime?
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem    Problem     @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  hints      Hint[]
+
+  @@index([userId, problemId])
+  @@index([assignmentId, createdAt])
+}
+
+model Hint {
+  id           String   @id @default(cuid())
+  submissionId String
+  level        Int // 1..3
+  content      String
+  blocked      Boolean  @default(false) // replaced by the leak guard
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, level])
+}

@@ -1,0 +1,38 @@
+{
+  "name": "judgehint",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter \"./apps/*\" --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose -f docker/compose/docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker/compose/docker-compose.dev.yml down",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
+    "build:sandbox": "node docker/sandbox/build.mjs"
+  },
+  "prisma": {
+    "seed": "tsx seed/index.ts"
+  },
+  "devDependencies": {
+    "@judgehint/db": "workspace:*",
+    "@judgehint/shared": "workspace:*",
+    "@prisma/client": "6.19.3",
+    "@types/node": "20.19.43",
+    "bcryptjs": "3.0.3",
+    "prisma": "6.19.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
