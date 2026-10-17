@@ -120,3 +120,106 @@ describe.skipIf(!ready)('sandbox — malicious programs', () => {
     expect(leftovers).toHaveLength(0);
   });
 });
+
+const cpp = (body: string, includes = '') => `#include <bits/stdc++.h>\n${includes}using namespace std;\nint main() {\n${body}\n}\n`;
+
+describe.skipIf(!ready)('sandbox — C++17', () => {
+  it('accepts a correct solution over several tests', async () => {
+    const res = await judgeCode(
+      one('cpp', cpp('long long a, b; cin >> a >> b; cout << a + b << "\\n";'), {
+        tests: [
+          { id: 't1', input: '3 4\n', expected: '7\n' },
+          { id: 't2', input: '-1000000000000 1\n', expected: '-999999999999\n' },
+        ],
+      }),
+    );
+    expect(res).toMatchObject({ verdict: 'ACCEPTED', passedCount: 2 });
+    expect(res.memoryKb).toBeGreaterThan(0);
+  });
+
+  it('hands the program exactly the test input after the binary, even a large one', async () => {
+    const n = 100_000;
+    const input = `${n}\n${Array.from({ length: n }, (_, i) => i + 1).join(' ')}\n`;
+    const code = cpp('int n; cin >> n; long long s = 0; for (int i = 0, x; i < n; i++) { cin >> x; s += x; }\nstring rest; cout << s << (cin >> rest ? " extra" : "") << "\\n";');
+    const res = await judgeCode(one('cpp', code, { tests: [{ id: 't1', input, expected: `${(n * (n + 1)) / 2}\n` }] }));
+    expect(res.verdict).toBe('ACCEPTED');
+  });
+
+  it('reports a wrong answer', async () => {
+    const res = await judgeCode(one('cpp', cpp('cout << 8 << endl;')));
+    expect(res.verdict).toBe('WRONG_ANSWER');
+    expect(res.failed?.actualOutput).toBe('8\n');
+  });
+
+  it('reports a compile error with the compiler message', async () => {
+    const res = await judgeCode(one('cpp', cpp('int x = 1\ncout << x;')));
+    expect(res).toMatchObject({ verdict: 'COMPILE_ERROR', passedCount: 0, failed: null });
+    expect(res.stderr).toMatch(/main\.cpp:\d+:\d+: error/);
+    expect(res.stderr).not.toContain('__JH_STATS__');
+  });
+
+  it('reports a runtime error', async () => {
+    const res = await judgeCode(one('cpp', cpp('vector<int> v; return v.at(3);')));
+    expect(res.verdict).toBe('RUNTIME_ERROR');
+    expect(res.stderr).toContain('out_of_range');
+  });
+
+  it('kills an infinite loop (TLE)', async () => {
+    const started = Date.now();
+    const res = await judgeCode(one('cpp', cpp('volatile unsigned long long x = 0; for (;;) x++;')));
+    expect(res.verdict).toBe('TIME_LIMIT_EXCEEDED');
+    expect(Date.now() - started).toBeLessThan(15_000);
+  });
+
+  it('stops a 1GB allocation at the memory limit (MLE)', async () => {
+    // Size and contents depend on the input so the optimizer cannot drop the allocation.
+    const body = 'size_t a, b; cin >> a >> b; size_t n = a << 28; vector<char> v(n, (char)b); long long s = 0;\nfor (size_t i = 0; i < n; i += 4096) s += v[i];\ncout << s << endl;';
+    const res = await judgeCode(one('cpp', cpp(body)));
+    expect(res.verdict).toBe('MEMORY_LIMIT_EXCEEDED');
+  });
+
+  it('contains a fork bomb with the pids limit', async () => {
+    const res = await judgeCode(one('cpp', cpp('for (;;) fork();', '#include <unistd.h>\n')));
+    expect(['TIME_LIMIT_EXCEEDED', 'RUNTIME_ERROR']).toContain(res.verdict);
+  });
+
+  it('has no network access', async () => {
+    const body = [
+      'int s = socket(AF_INET, SOCK_STREAM, 0);',
+      'sockaddr_in a{}; a.sin_family = AF_INET; a.sin_port = htons(80); inet_pton(AF_INET, "1.1.1.1", &a.sin_addr);',
+      'if (s < 0 || connect(s, (sockaddr*)&a, sizeof a) != 0) { perror("connect"); return 3; }',
+      'cout << 7 << endl;',
+    ].join('\n');
+    const res = await judgeCode(one('cpp', cpp(body, '#include <arpa/inet.h>\n#include <sys/socket.h>\n')));
+    expect(res.verdict).toBe('RUNTIME_ERROR');
+    expect(res.stderr).toMatch(/connect: .*(unreachable|Network)/i);
+  });
+
+  it('cannot run a copied binary from /tmp (noexec)', async () => {
+    const body = [
+      'ifstream in("/proc/self/exe", ios::binary); ofstream out("/tmp/copy", ios::binary); out << in.rdbuf(); out.close();',
+      'chmod("/tmp/copy", 0755);',
+      'string mode = getenv("JH_COPY") ? "copy" : "main";',
+      'if (mode == "copy") { cout << "escaped" << endl; return 0; }',
+      'setenv("JH_COPY", "1", 1); execl("/tmp/copy", "copy", (char*)nullptr);',
+      'cout << (errno == EACCES ? "noexec" : strerror(errno)) << endl;',
+    ].join('\n');
+    const res = await judgeCode(
+      one('cpp', cpp(body, '#include <sys/stat.h>\n#include <unistd.h>\n'), { tests: [{ id: 't1', input: '', expected: 'noexec\n' }] }),
+    );
+    expect(res.failed?.actualOutput ?? 'noexec\n').toBe('noexec\n');
+    expect(res.verdict).toBe('ACCEPTED');
+  });
+
+  it('runs C++ as nobody without capabilities', async () => {
+    const body = 'ifstream f("/proc/self/status"); string l; while (getline(f, l)) if (l.rfind("CapEff:", 0) == 0) cout << getuid() << " " << l.substr(7) << endl;';
+    const res = await judgeCode(one('cpp', cpp(body, '#include <unistd.h>\n')));
+    expect(res.failed?.actualOutput.replace(/\s+/g, ' ').trim()).toBe('65534 0000000000000000');
+  });
+
+  it('still judges normally afterwards and leaves no containers behind', async () => {
+    expect((await judgeCode(one('cpp', cpp('cout << 7 << endl;')))).verdict).toBe('ACCEPTED');
+    const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL] } });
+    expect(leftovers).toHaveLength(0);
+  });
+});

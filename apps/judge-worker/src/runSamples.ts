@@ -10,10 +10,18 @@ import {
   type RunResult,
 } from '@judgehint/shared';
 import { STDOUT_CAP_BYTES, stdoutCapFor } from './compare.js';
-import { ACTUAL_OUTPUT_KEEP_CHARS, classifyExecution, classifyRun, STDERR_KEEP_BYTES, tail } from './judge.js';
+import {
+  ACTUAL_OUTPUT_KEEP_CHARS,
+  classifyExecution,
+  classifyRun,
+  prepareProgram,
+  STDERR_KEEP_BYTES,
+  tail,
+  type Compiler,
+} from './judge.js';
 import type { Publish } from './judgeSubmission.js';
 import { logger } from './logger.js';
-import { runInSandbox, SandboxError, type RunOptions, type RunResult as SandboxRun } from './runner/dockerRunner.js';
+import { compileInSandbox, runInSandbox, SandboxError, type RunOptions, type RunResult as SandboxRun } from './runner/dockerRunner.js';
 
 export interface RunCase {
   kind: 'sample' | 'custom';
@@ -31,19 +39,43 @@ interface Limits {
 
 type Runner = (opts: RunOptions) => Promise<SandboxRun>;
 
-/** Runs every case (no early stop: students want to see all samples) and reports each one. */
+/**
+ * Compiles if needed, then runs every case (no early stop: students want to see all samples) and
+ * reports each one. A compile error fails every case, with the compiler output on the first.
+ */
 export async function executeCases(
   cases: RunCase[],
   limits: Limits,
   onCase: (result: RunCaseResult, done: number) => unknown,
   run: Runner = runInSandbox,
+  compile: Compiler = compileInSandbox,
 ): Promise<RunCaseResult[]> {
   const results: RunCaseResult[] = [];
+  const { binary, compileError } = await prepareProgram(limits.language, limits.code, compile);
+  if (compileError !== undefined) {
+    for (const c of cases) {
+      const result: RunCaseResult = {
+        kind: c.kind,
+        number: c.number,
+        input: c.input,
+        expected: c.expected,
+        actual: '',
+        stderr: results.length === 0 ? compileError : null,
+        verdict: Verdict.COMPILE_ERROR,
+        runtimeMs: null,
+      };
+      results.push(result);
+      await onCase(result, results.length);
+    }
+    return results;
+  }
+
   for (const c of cases) {
     const out = await run({
       ...limits,
       input: c.input,
       stdoutCapBytes: c.expected === null ? STDOUT_CAP_BYTES : stdoutCapFor(c.expected),
+      binary,
     });
     const verdict =
       c.expected === null

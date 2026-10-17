@@ -5,7 +5,7 @@ import { Writable } from 'node:stream';
 import type { Container } from 'dockerode';
 import type { Language } from '@judgehint/shared';
 import { docker, SANDBOX_LABEL } from '../docker.js';
-import { bootstrapScript, LANGUAGES, STATS_MARKER } from './languages.js';
+import { BINARY_DIR, bootstrapScript, compileScript, LANGUAGES, LOAD_FAILED, STATS_MARKER } from './languages.js';
 
 export interface RunOptions {
   language: Language;
@@ -15,6 +15,8 @@ export interface RunOptions {
   memoryLimitMb: number;
   /** Stop collecting stdout after this many bytes (the program keeps running). */
   stdoutCapBytes: number;
+  /** Compiled languages: the binary from compileInSandbox (`code` is then unused). */
+  binary?: Buffer;
 }
 
 export interface RunResult {
@@ -32,6 +34,8 @@ export interface RunResult {
   memoryKb: number | null;
 }
 
+export type CompileResult = { ok: true; binary: Buffer } | { ok: false; message: string };
+
 /** Thrown when the sandbox itself fails (daemon down, missing image) — not the user's fault. */
 export class SandboxError extends Error {
   override name = 'SandboxError';
@@ -43,6 +47,17 @@ export const SANDBOX_LIMITS = {
   tmpfsMb: 16,
   fileSizeBytes: 1024 * 1024,
   stderrTailBytes: 8 * 1024,
+  /** Exec-enabled tmpfs for a compiled binary, which the fsize limit already keeps under 1MB. */
+  binaryTmpfsMb: 4,
+} as const;
+
+/** The compiler gets fixed, roomier limits than the program: it is our code, not the student's. */
+export const COMPILE_LIMITS = {
+  timeoutMs: 10_000,
+  memoryMb: 512,
+  tmpfsMb: 64,
+  fileSizeBytes: 16 * 1024 * 1024,
+  stderrHeadBytes: 8 * 1024,
 } as const;
 
 /** Programs get half a CPU, so wall time may legitimately reach ~2x CPU time plus start-up. */
@@ -66,8 +81,11 @@ class CappedSink extends Writable {
     }
     cb();
   }
+  buffer() {
+    return Buffer.concat(this.chunks);
+  }
   text() {
-    return Buffer.concat(this.chunks).toString('utf8');
+    return this.buffer().toString('utf8');
   }
 }
 
@@ -154,18 +172,36 @@ export async function removeLeftoverContainers(): Promise<number> {
   return leftovers.length;
 }
 
-/** Runs one program against one input in a fresh, locked-down container, then removes it. */
-export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
-  const spec = LANGUAGES[opts.language];
-  if (!spec) throw new SandboxError(`Unsupported language: ${opts.language}`);
+interface ContainerJob {
+  image: string;
+  script: string;
+  env: string[];
+  /** Everything the container reads on stdin, followed by EOF. */
+  stdin: Buffer;
+  memoryLimitMb: number;
+  tmpfs: Record<string, string>;
+  fileSizeBytes: number;
+  wallLimitMs: number;
+  stdout: Writable;
+  stderr: Writable;
+}
 
-  const memoryBytes = opts.memoryLimitMb * 1024 * 1024;
+interface ContainerExit {
+  timedOut: boolean;
+  oomKilled: boolean;
+  exitCode: number | null;
+  wallMs: number;
+}
+
+/** Runs one script in a fresh, locked-down container (CLAUDE.md §5), then removes it. */
+async function runContainer(job: ContainerJob): Promise<ContainerExit> {
+  const memoryBytes = job.memoryLimitMb * 1024 * 1024;
   let container: Container;
   try {
     container = await docker.createContainer({
-      Image: spec.image,
-      Cmd: ['sh', '-c', bootstrapScript(spec)],
-      Env: [`JH_CODE=${opts.code}`],
+      Image: job.image,
+      Cmd: ['sh', '-c', job.script],
+      Env: job.env,
       User: '65534:65534',
       WorkingDir: '/tmp',
       AttachStdin: true,
@@ -183,11 +219,11 @@ export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
         NanoCpus: SANDBOX_LIMITS.cpus * 1e9,
         PidsLimit: SANDBOX_LIMITS.pids,
         ReadonlyRootfs: true,
-        Tmpfs: { '/tmp': `rw,size=${SANDBOX_LIMITS.tmpfsMb}m,noexec,nosuid,nodev` },
+        Tmpfs: job.tmpfs,
         CapDrop: ['ALL'],
         SecurityOpt: ['no-new-privileges'],
         Ulimits: [
-          { Name: 'fsize', Soft: SANDBOX_LIMITS.fileSizeBytes, Hard: SANDBOX_LIMITS.fileSizeBytes },
+          { Name: 'fsize', Soft: job.fileSizeBytes, Hard: job.fileSizeBytes },
           { Name: 'nofile', Soft: 256, Hard: 256 },
         ],
         AutoRemove: false,
@@ -206,9 +242,7 @@ export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
     // EPIPE when the program exits without reading all input is expected.
     output.on('error', () => {});
     input.on('error', () => {});
-    const stdout = new CappedSink(opts.stdoutCapBytes);
-    const stderr = new TailSink(SANDBOX_LIMITS.stderrTailBytes);
-    container.modem.demuxStream(output, stdout, stderr);
+    container.modem.demuxStream(output, job.stdout, job.stderr);
     const streamDone = new Promise<void>((resolve) => {
       output.once('end', resolve);
       output.once('close', resolve);
@@ -216,13 +250,13 @@ export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
 
     await container.start();
     const started = performance.now();
-    input.end(opts.input); // then EOF
+    input.end(job.stdin); // then EOF
 
     let timedOut = false;
     const guard = setTimeout(() => {
       timedOut = true;
       container.kill().catch(() => {});
-    }, wallClockLimit(opts.timeLimitMs));
+    }, job.wallLimitMs);
 
     let exitCode: number | null = null;
     try {
@@ -237,22 +271,92 @@ export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
     await Promise.race([streamDone, sleep(500)]);
 
     const info = await container.inspect();
-    const stats = parseStats(stderr.text());
-    return {
-      timedOut,
-      oomKilled: !!info.State?.OOMKilled,
-      exitCode,
-      stdout: stdout.text(),
-      stdoutTruncated: stdout.truncated,
-      stderr: stats.stderr,
-      wallMs,
-      cpuMs: stats.cpuMs,
-      memoryKb: stats.memoryKb,
-    };
+    return { timedOut, oomKilled: !!info.State?.OOMKilled, exitCode, wallMs };
   } catch (err) {
     if (err instanceof SandboxError) throw err;
     throw new SandboxError(`Sandbox run failed: ${(err as Error).message}`);
   } finally {
     await container.remove({ force: true }).catch(() => {});
   }
+}
+
+const noexecTmpfs = (sizeMb: number) => `rw,size=${sizeMb}m,noexec,nosuid,nodev`;
+
+/** Runs one program against one input in a fresh, locked-down container, then removes it. */
+export async function runInSandbox(opts: RunOptions): Promise<RunResult> {
+  const spec = LANGUAGES[opts.language];
+  if (!spec) throw new SandboxError(`Unsupported language: ${opts.language}`);
+  if (spec.compile && !opts.binary) throw new SandboxError(`${opts.language} needs a compiled binary`);
+
+  const input = Buffer.from(opts.input, 'utf8');
+  const stdout = new CappedSink(opts.stdoutCapBytes);
+  const stderr = new TailSink(SANDBOX_LIMITS.stderrTailBytes);
+  const exit = await runContainer({
+    image: spec.image,
+    script: bootstrapScript(spec, opts.binary?.length),
+    env: spec.compile ? [] : [`JH_CODE=${opts.code}`],
+    stdin: opts.binary ? Buffer.concat([opts.binary, input]) : input,
+    memoryLimitMb: opts.memoryLimitMb,
+    tmpfs: {
+      '/tmp': noexecTmpfs(SANDBOX_LIMITS.tmpfsMb),
+      // Only compiled languages get an exec-enabled dir, for their binary; /tmp stays noexec. The
+      // program could write there too, but it is native code already, so that grants nothing new.
+      ...(spec.compile && { [BINARY_DIR]: `rw,size=${SANDBOX_LIMITS.binaryTmpfsMb}m,exec,nosuid,nodev,uid=65534,gid=65534,mode=0700` }),
+    },
+    fileSizeBytes: SANDBOX_LIMITS.fileSizeBytes,
+    wallLimitMs: wallClockLimit(opts.timeLimitMs),
+    stdout,
+    stderr,
+  });
+
+  // The loader runs before any student code, so its marker can only open stderr.
+  if (exit.exitCode === 125 && stderr.text().startsWith(LOAD_FAILED)) throw new SandboxError('Run container could not load the binary');
+  const stats = parseStats(stderr.text());
+  return {
+    ...exit,
+    stdout: stdout.text(),
+    stdoutTruncated: stdout.truncated,
+    stderr: stats.stderr,
+    cpuMs: stats.cpuMs,
+    memoryKb: stats.memoryKb,
+  };
+}
+
+/**
+ * Compiles once in its own container with a 10s limit (CLAUDE.md §5). Failures the student caused —
+ * compiler errors, a compiler timeout or blow-up, an oversized binary — are `ok: false` with a message
+ * for them; infrastructure failures throw SandboxError.
+ */
+export async function compileInSandbox(language: Language, code: string): Promise<CompileResult> {
+  const spec = LANGUAGES[language];
+  if (!spec?.compile) throw new SandboxError(`${language} is not a compiled language`);
+
+  // One byte over the cap tells "too big" apart from "exactly at the limit".
+  const stdout = new CappedSink(SANDBOX_LIMITS.fileSizeBytes + 1);
+  // The first errors are the useful ones, so keep the head of the compiler output.
+  const stderr = new CappedSink(COMPILE_LIMITS.stderrHeadBytes);
+  const exit = await runContainer({
+    image: spec.image,
+    script: compileScript(spec),
+    env: [`JH_CODE=${code}`],
+    stdin: Buffer.alloc(0),
+    memoryLimitMb: COMPILE_LIMITS.memoryMb,
+    tmpfs: { '/tmp': noexecTmpfs(COMPILE_LIMITS.tmpfsMb) },
+    fileSizeBytes: COMPILE_LIMITS.fileSizeBytes,
+    wallLimitMs: COMPILE_LIMITS.timeoutMs,
+    stdout,
+    stderr,
+  });
+
+  if (exit.timedOut) return { ok: false, message: `Biên dịch quá thời gian (${COMPILE_LIMITS.timeoutMs / 1000} giây).` };
+  if (exit.oomKilled) return { ok: false, message: 'Trình biên dịch dùng quá nhiều bộ nhớ.' };
+  if (exit.exitCode !== 0) {
+    return { ok: false, message: stderr.text().trim() || `Biên dịch thất bại (mã thoát ${exit.exitCode ?? '?'}).` };
+  }
+  const binary = stdout.buffer();
+  if (binary.length > SANDBOX_LIMITS.fileSizeBytes) {
+    return { ok: false, message: `File chạy sau khi biên dịch vượt quá ${SANDBOX_LIMITS.fileSizeBytes / 1024 / 1024}MB.` };
+  }
+  if (binary.length === 0) throw new SandboxError('Compiler produced no binary');
+  return { ok: true, binary };
 }

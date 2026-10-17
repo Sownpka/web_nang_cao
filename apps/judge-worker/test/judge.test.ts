@@ -1,6 +1,6 @@
 // Judge logic with a fake runner — no Docker needed.
 import { describe, expect, it } from 'vitest';
-import { judgeCode, tail, type JudgeProgress } from '../src/judge.js';
+import { head, judgeCode, tail, type JudgeProgress } from '../src/judge.js';
 import type { RunOptions, RunResult } from '../src/runner/dockerRunner.js';
 
 const ok = (stdout: string, extra: Partial<RunResult> = {}): RunResult => ({
@@ -78,5 +78,54 @@ describe('judgeCode', () => {
     const long = `${'a'.repeat(5000)}END`;
     expect(tail(long, 2048)).toHaveLength(2048);
     expect(tail(long, 2048).endsWith('END')).toBe(true);
+  });
+
+  it('keeps only the head of long compiler output', () => {
+    const long = `START${'a'.repeat(5000)}`;
+    expect(head(long, 2048)).toHaveLength(2048);
+    expect(head(long, 2048).startsWith('START')).toBe(true);
+  });
+});
+
+describe('judgeCode — compiled languages', () => {
+  const cpp = { ...base, language: 'cpp' as const };
+  const binary = Buffer.from('ELF');
+
+  it('compiles once and hands the binary to every test run', async () => {
+    const { run, calls } = fakeRunner({ '1': ok('1'), '2': ok('4'), '3': ok('9') });
+    let compiles = 0;
+    const compile = async () => {
+      compiles++;
+      return { ok: true as const, binary };
+    };
+    const res = await judgeCode(cpp, undefined, run, compile);
+    expect(res.verdict).toBe('ACCEPTED');
+    expect(compiles).toBe(1);
+    expect(calls.map((c) => c.binary)).toEqual([binary, binary, binary]);
+  });
+
+  it('reports COMPILE_ERROR with the head of the compiler output and runs nothing', async () => {
+    const { run, calls } = fakeRunner({});
+    const message = `main.cpp:3:5: error: expected ';'\n${'x'.repeat(5000)}`;
+    const res = await judgeCode(cpp, undefined, run, async () => ({ ok: false, message }));
+    expect(res).toMatchObject({ verdict: 'COMPILE_ERROR', passedCount: 0, totalCount: 3, runtimeMs: null, failed: null });
+    expect(res.stderr!.startsWith("main.cpp:3:5: error: expected ';'")).toBe(true);
+    expect(res.stderr!.length).toBeLessThanOrEqual(2048);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('never compiles interpreted languages', async () => {
+    const { run, calls } = fakeRunner({ '1': ok('1'), '2': ok('4'), '3': ok('9') });
+    const compile = async () => {
+      throw new Error('should not compile');
+    };
+    expect((await judgeCode(base, undefined, run, compile)).verdict).toBe('ACCEPTED');
+    expect(calls[0]!.binary).toBeUndefined();
+  });
+
+  it('treats std::bad_alloc as MLE', async () => {
+    const { run } = fakeRunner({ '1': ok('', { exitCode: 134, stderr: "terminate called after throwing an instance of 'std::bad_alloc'" }) });
+    const res = await judgeCode(cpp, undefined, run, async () => ({ ok: true, binary }));
+    expect(res.verdict).toBe('MEMORY_LIMIT_EXCEEDED');
   });
 });

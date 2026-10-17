@@ -39,7 +39,7 @@ function randInt(rng: () => number, lo: number, hi: number): number {
 const pub = (input: string, expected: string): SeedTest => ({ input, expected, isHidden: false });
 const hid = (input: string, expected: string): SeedTest => ({ input, expected, isHidden: true });
 
-const BOTH: Language[] = ['python', 'javascript'];
+const ALL_LANGUAGES: Language[] = ['python', 'javascript', 'cpp'];
 
 // ---------- 1. A + B ----------
 function sumTwo(): SeedProblem {
@@ -56,7 +56,7 @@ function sumTwo(): SeedProblem {
     difficulty: 'EASY',
     timeLimitMs: 1000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho hai số nguyên **a** và **b**. Hãy in ra **a + b**.
 
 ### Đầu vào
@@ -95,7 +95,7 @@ function sumArray(): SeedProblem {
     difficulty: 'EASY',
     timeLimitMs: 2000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho dãy gồm **n** số nguyên. Hãy tính tổng các phần tử.
 
 ### Đầu vào
@@ -133,7 +133,7 @@ function reverseString(): SeedProblem {
     difficulty: 'EASY',
     timeLimitMs: 1000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho một chuỗi **s** chỉ gồm chữ cái Latin, chữ số và dấu cách. In ra chuỗi đảo ngược.
 
 ### Đầu vào
@@ -176,7 +176,7 @@ function primeCheck(): SeedProblem {
     difficulty: 'MEDIUM',
     timeLimitMs: 2000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho **T** truy vấn, mỗi truy vấn là một số nguyên dương **n**. Với mỗi truy vấn, in \`YES\` nếu \`n\` là số nguyên tố, ngược lại in \`NO\`.
 
 ### Đầu vào
@@ -235,7 +235,7 @@ function fibonacciMod(): SeedProblem {
     difficulty: 'MEDIUM',
     timeLimitMs: 2000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Dãy Fibonacci: \`F(0) = 0\`, \`F(1) = 1\`, \`F(n) = F(n-1) + F(n-2)\`.
 
 Cho **n**, in ra \`F(n) mod 10^9 + 7\`.
@@ -288,7 +288,7 @@ function maxSubarray(): SeedProblem {
     difficulty: 'MEDIUM',
     timeLimitMs: 2000,
     memoryLimitMb: 128,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho dãy **n** số nguyên. Tìm tổng lớn nhất của một đoạn con liên tiếp **khác rỗng**.
 
 ### Đầu vào
@@ -351,7 +351,7 @@ function countPairs(): SeedProblem {
     difficulty: 'HARD',
     timeLimitMs: 2000,
     memoryLimitMb: 256,
-    allowedLanguages: BOTH,
+    allowedLanguages: ALL_LANGUAGES,
     statementMd: `Cho dãy **n** số nguyên và số **K**. Đếm số cặp chỉ số \`(i, j)\` với \`i < j\` sao cho \`a_i + a_j = K\`.
 
 ### Đầu vào

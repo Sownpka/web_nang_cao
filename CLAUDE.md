@@ -112,7 +112,7 @@ judgehint/
 |---|---|---|---|
 | `python` | `judgehint/py:3.12` (từ python:3.12-alpine) | — | `python3 main.py` |
 | `javascript` | `judgehint/node:20` (từ node:20-alpine) | — | `node main.js` |
-| `cpp` (giai đoạn sau) | `judgehint/gcc:13` | `g++ -O2 -std=c++17 main.cpp -o main` | `./main` |
+| `cpp` | `judgehint/gcc:13` (từ alpine:3.20 + g++ 13, có sẵn PCH `bits/stdc++.h`) | `g++ -O2 -std=c++17 main.cpp -o main` | `./main` |
 
 ### Giới hạn bắt buộc cho mỗi container
 ```

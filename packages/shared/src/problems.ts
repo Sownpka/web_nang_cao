@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { Difficulty, Language } from './enums.js';
 import { difficultySchema, languageSchema } from './schemas.js';
 
-/** Languages the judge can currently run (C++ comes later). */
-export const SUPPORTED_LANGUAGES: readonly Language[] = [Language.python, Language.javascript];
+/** Languages the judge can run. */
+export const SUPPORTED_LANGUAGES: readonly Language[] = [Language.python, Language.javascript, Language.cpp];
 
 export const LANGUAGE_LABELS: Record<Language, string> = {
   python: 'Python 3.12',

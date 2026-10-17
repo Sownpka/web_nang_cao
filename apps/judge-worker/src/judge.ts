@@ -1,6 +1,7 @@
 import { Verdict, type Language } from '@judgehint/shared';
 import { outputsMatch, stdoutCapFor } from './compare.js';
-import { runInSandbox, type RunOptions, type RunResult } from './runner/dockerRunner.js';
+import { compileInSandbox, runInSandbox, type CompileResult, type RunOptions, type RunResult } from './runner/dockerRunner.js';
+import { LANGUAGES } from './runner/languages.js';
 
 export interface JudgeTest {
   id: string;
@@ -45,7 +46,7 @@ export const STDERR_KEEP_BYTES = 2 * 1024;
 /** Stored actual output of the failing test. */
 export const ACTUAL_OUTPUT_KEEP_CHARS = 4 * 1024;
 
-const MEMORY_ERROR_PATTERNS = [/\bMemoryError\b/, /JavaScript heap out of memory/, /Cannot allocate memory/];
+const MEMORY_ERROR_PATTERNS = [/\bMemoryError\b/, /JavaScript heap out of memory/, /Cannot allocate memory/, /std::bad_alloc/];
 
 export function tail(text: string, bytes: number): string {
   const buf = Buffer.from(text, 'utf8');
@@ -70,19 +71,48 @@ export function classifyRun(run: RunResult, expected: string, timeLimitMs: numbe
 }
 
 type Runner = (opts: RunOptions) => Promise<RunResult>;
+export type Compiler = (language: Language, code: string) => Promise<CompileResult>;
+
+/** Stored compiler output: the head, since the first errors are the ones that matter. */
+export const COMPILE_MESSAGE_KEEP_BYTES = 2 * 1024;
+
+export function head(text: string, bytes: number): string {
+  const buf = Buffer.from(text, 'utf8');
+  return buf.length <= bytes ? text : buf.subarray(0, bytes).toString('utf8').replace(/�+$/, '');
+}
 
 /**
- * Runs tests in order and stops at the first failure.
+ * Compiles when the language needs it. `binary` is undefined for interpreted languages; a compile
+ * failure comes back as the (trimmed) message to show the student.
+ */
+export async function prepareProgram(
+  language: Language,
+  code: string,
+  compile: Compiler = compileInSandbox,
+): Promise<{ binary?: Buffer; compileError?: string }> {
+  if (!LANGUAGES[language]?.compile) return {};
+  const res = await compile(language, code);
+  return res.ok ? { binary: res.binary } : { compileError: head(res.message, COMPILE_MESSAGE_KEEP_BYTES) };
+}
+
+/**
+ * Compiles if needed, then runs tests in order and stops at the first failure.
  * Throws SandboxError for infrastructure failures (the caller decides between retry and SYSTEM_ERROR).
  */
 export async function judgeCode(
   input: JudgeInput,
   onProgress?: (p: JudgeProgress) => unknown,
   run: Runner = runInSandbox,
+  compile: Compiler = compileInSandbox,
 ): Promise<JudgeResult> {
   const total = input.tests.length;
   if (total === 0) {
     return { verdict: Verdict.SYSTEM_ERROR, passedCount: 0, totalCount: 0, runtimeMs: null, memoryKb: null, stderr: 'Bài chưa có test', failed: null };
+  }
+
+  const { binary, compileError } = await prepareProgram(input.language, input.code, compile);
+  if (compileError !== undefined) {
+    return { verdict: Verdict.COMPILE_ERROR, passedCount: 0, totalCount: total, runtimeMs: null, memoryKb: null, stderr: compileError, failed: null };
   }
   let runtimeMs: number | null = null;
   let memoryKb: number | null = null;
@@ -95,6 +125,7 @@ export async function judgeCode(
       timeLimitMs: input.timeLimitMs,
       memoryLimitMb: input.memoryLimitMb,
       stdoutCapBytes: stdoutCapFor(test.expected),
+      binary,
     });
 
     const verdict = classifyRun(result, test.expected, input.timeLimitMs);

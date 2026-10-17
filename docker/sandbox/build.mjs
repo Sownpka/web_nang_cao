@@ -8,6 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const images = [
   { tag: 'judgehint/py:3.12', dir: 'python' },
   { tag: 'judgehint/node:20', dir: 'node' },
+  { tag: 'judgehint/gcc:13', dir: 'gcc' },
 ];
 
 for (const { tag, dir } of images) {
