@@ -11,6 +11,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @judgehint/e2e test:e2e",
+    "e2e:stack": "pnpm --filter @judgehint/e2e stack",
     "db:up": "docker compose -f docker/compose/docker-compose.dev.yml up -d",
     "db:down": "docker compose -f docker/compose/docker-compose.dev.yml down",
     "db:generate": "prisma generate",

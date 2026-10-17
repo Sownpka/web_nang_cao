@@ -1,0 +1,22 @@
+{
+  "name": "@judgehint/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "stack": "tsx scripts/stack.ts",
+    "prepare-db": "tsx scripts/prepare.ts",
+    "install-browsers": "playwright install chromium",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@judgehint/db": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@types/node": "20.19.43",
+    "dotenv": "16.6.1",
+    "ioredis": "5.11.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
