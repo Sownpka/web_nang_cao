@@ -12,6 +12,7 @@ import { classroomsRouter } from './modules/classrooms/classrooms.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { hintsRouter } from './modules/hints/hints.routes.js';
 import { problemsRouter } from './modules/problems/problems.routes.js';
+import { reportsRouter } from './modules/reports/reports.routes.js';
 import { runsRouter } from './modules/runs/runs.routes.js';
 import { submissionsRouter } from './modules/submissions/submissions.routes.js';
 import { meRouter } from './modules/users/users.routes.js';
@@ -40,6 +41,7 @@ export function createApp() {
   api.use('/hints', hintsRouter);
   api.use('/classrooms', classroomsRouter);
   api.use('/assignments', assignmentsRouter);
+  api.use('/teacher', reportsRouter);
   api.use(runsRouter);
   app.use('/api', api);
 

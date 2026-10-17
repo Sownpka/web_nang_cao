@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Copy, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Check, Copy, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -130,11 +130,18 @@ export function ClassroomDetailPage() {
               </div>
               <Countdown startsAt={a.startsAt} endsAt={a.endsAt} className="text-sm text-muted-foreground" />
               {c.canManage && (
-                <Button variant="ghost" size="icon" asChild title={t.editAssignment}>
-                  <Link to={`/assignments/${a.id}/edit`} aria-label={t.editAssignment}>
-                    <Pencil />
-                  </Link>
-                </Button>
+                <div className="flex">
+                  <Button variant="ghost" size="icon" asChild title={vi.report.open}>
+                    <Link to={`/assignments/${a.id}/report`} aria-label={vi.report.open}>
+                      <BarChart3 />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="icon" asChild title={t.editAssignment}>
+                    <Link to={`/assignments/${a.id}/edit`} aria-label={t.editAssignment}>
+                      <Pencil />
+                    </Link>
+                  </Button>
+                </div>
               )}
             </li>
           ))}

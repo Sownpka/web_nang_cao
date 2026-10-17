@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Loader2, Pencil, Sparkles } from 'lucide-react';
+import { ArrowLeft, BarChart3, CheckCircle2, Loader2, Pencil, Sparkles } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { assignmentStatus } from '@judgehint/shared';
 import { AssignmentStatusBadge, Countdown } from '@/components/Countdown';
@@ -69,12 +69,20 @@ export function AssignmentPage() {
             )}
           </div>
           {a.canManage && (
-            <Button variant="outline" size="sm" asChild>
-              <Link to={`/assignments/${a.id}/edit`}>
-                <Pencil />
-                {vi.classes.editAssignment}
-              </Link>
-            </Button>
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/assignments/${a.id}/report`}>
+                  <BarChart3 />
+                  {vi.report.open}
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/assignments/${a.id}/edit`}>
+                  <Pencil />
+                  {vi.classes.editAssignment}
+                </Link>
+              </Button>
+            </>
           )}
         </div>
       </div>

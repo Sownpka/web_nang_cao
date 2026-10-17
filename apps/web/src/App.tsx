@@ -17,6 +17,8 @@ const ClassroomsPage = lazy(() => import('@/pages/ClassroomsPage').then((m) => (
 const ClassroomDetailPage = lazy(() => import('@/pages/ClassroomDetailPage').then((m) => ({ default: m.ClassroomDetailPage })));
 const AssignmentPage = lazy(() => import('@/pages/AssignmentPage').then((m) => ({ default: m.AssignmentPage })));
 const AssignmentEditorPage = lazy(() => import('@/pages/teacher/AssignmentEditorPage').then((m) => ({ default: m.AssignmentEditorPage })));
+const AssignmentReportPage = lazy(() => import('@/pages/teacher/AssignmentReportPage').then((m) => ({ default: m.AssignmentReportPage })));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const TeacherProblemsPage = lazy(() => import('@/pages/teacher/TeacherProblemsPage').then((m) => ({ default: m.TeacherProblemsPage })));
 
 const STAFF = ['TEACHER', 'ADMIN'] as const;
@@ -97,6 +99,22 @@ export function App() {
           element={
             <RequireAuth roles={STAFF}>
               <AssignmentEditorPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="assignments/:id/report"
+          element={
+            <RequireAuth roles={STAFF}>
+              <AssignmentReportPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
             </RequireAuth>
           }
         />

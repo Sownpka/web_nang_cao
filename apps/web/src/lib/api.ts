@@ -85,7 +85,8 @@ export function refreshSession(): Promise<AuthResponse | null> {
 
 // ---- Fetch wrapper -------------------------------------------------------
 
-export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
+/** fetch() with the access token; on 401 refreshes once and replays the request. */
+async function authedFetch(path: string, init: RequestInit = {}, retried = false): Promise<Response> {
   const res = await fetch(`/api${path}`, {
     credentials: 'include',
     ...init,
@@ -99,9 +100,43 @@ export async function api<T>(path: string, init: RequestInit = {}, retried = fal
   // Access token expired: refresh once and replay the request.
   if (res.status === 401 && !retried && accessToken && !path.startsWith('/auth/')) {
     const session = await refreshSession();
-    if (session) return api<T>(path, init, true);
+    if (session) return authedFetch(path, init, true);
   }
-  return parse<T>(res);
+  return res;
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return parse<T>(await authedFetch(path, init));
+}
+
+/** Name from `Content-Disposition`, preferring the UTF-8 `filename*` form. */
+function attachmentName(header: string | null): string | null {
+  const utf8 = header?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8);
+    } catch {
+      // fall through to the ASCII name
+    }
+  }
+  return header?.match(/filename="([^"]+)"/i)?.[1] ?? null;
+}
+
+/**
+ * Downloads an authenticated file. A plain link cannot carry the in-memory access token,
+ * so the file is fetched and handed to the browser as a blob.
+ */
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+  const res = await authedFetch(path);
+  if (!res.ok) await parse<never>(res);
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = attachmentName(res.headers.get('Content-Disposition')) ?? fallbackName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export const post = <T>(path: string, body?: unknown) =>

@@ -7,3 +7,7 @@ export const meRouter = Router();
 meRouter.get('/', requireAuth, async (req, res) => {
   res.json(await usersService.getMe(currentUser(req).id));
 });
+
+meRouter.get('/stats', requireAuth, async (req, res) => {
+  res.json(await usersService.getUserStats(currentUser(req).id));
+});

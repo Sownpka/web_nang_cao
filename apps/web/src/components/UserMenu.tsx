@@ -1,5 +1,5 @@
 import { LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { AuthUser } from '@judgehint/shared';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -25,17 +25,17 @@ export function UserMenu({ user }: { user: AuthUser }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="hidden items-center gap-2 sm:flex">
+      <Link to="/profile" title={vi.nav.profile} aria-label={vi.nav.profile} className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-accent">
         <span className="grid size-8 place-items-center rounded-full bg-accent text-xs font-semibold" aria-hidden>
           {initials}
         </span>
-        <div className="leading-tight">
+        <div className="hidden leading-tight sm:block">
           <p className="max-w-40 truncate text-sm font-medium">{user.fullName}</p>
           <span className={cn('rounded px-1.5 py-px text-[11px] font-medium', roleStyles[user.role])}>
             {vi.roles[user.role]}
           </span>
         </div>
-      </div>
+      </Link>
       <Button
         variant="ghost"
         size="icon"

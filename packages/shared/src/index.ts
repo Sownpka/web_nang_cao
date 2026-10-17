@@ -6,3 +6,4 @@ export * from './problems.js';
 export * from './submissions.js';
 export * from './hints.js';
 export * from './classrooms.js';
+export * from './reports.js';
