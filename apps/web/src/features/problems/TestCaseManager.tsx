@@ -1,7 +1,7 @@
 import { Eye, EyeOff, FileUp, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { TestCaseSummary } from '@judgehint/shared';
+import { MAX_TESTCASES_PER_PROBLEM, type TestCaseSummary } from '@judgehint/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import {
   useTestCases,
   useToggleHidden,
 } from './api';
-import { pairTestFiles, type FilePair } from './testFiles';
+import { ACCEPTED_EXTENSIONS, pairTestFiles, type FilePair, type SkippedFile } from './testFiles';
 
 const t = vi.teacher.tests;
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : String(err));
@@ -113,14 +113,16 @@ function TestCaseDialog({ problemId, draft, onClose }: { problemId: string; draf
 
 function ImportDialog({ problemId, open, onClose }: { problemId: string; open: boolean; onClose: () => void }) {
   const [pairs, setPairs] = useState<FilePair[]>([]);
-  const [unpaired, setUnpaired] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState<SkippedFile[]>([]);
+  const [reading, setReading] = useState(false);
   const [replace, setReplace] = useState(false);
   const [hidden, setHidden] = useState(true);
   const bulk = useBulkTestCases(problemId);
+  const tooMany = pairs.length > MAX_TESTCASES_PER_PROBLEM;
 
   const close = () => {
     setPairs([]);
-    setUnpaired([]);
+    setSkipped([]);
     onClose();
   };
 
@@ -147,7 +149,7 @@ function ImportDialog({ problemId, open, onClose }: { problemId: string; open: b
           <Button variant="outline" onClick={close}>
             {t.cancel}
           </Button>
-          <Button onClick={submit} disabled={!pairs.length || bulk.isPending}>
+          <Button onClick={submit} disabled={!pairs.length || tooMany || reading || bulk.isPending}>
             {bulk.isPending && <Loader2 className="animate-spin" />}
             {t.importDo(pairs.length)}
           </Button>
@@ -159,18 +161,46 @@ function ImportDialog({ problemId, open, onClose }: { problemId: string; open: b
         <input
           type="file"
           multiple
-          accept=".in,.inp,.input,.out,.ans,.ok,.output"
+          accept={ACCEPTED_EXTENSIONS.join(',')}
           className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:text-secondary-foreground"
           onChange={async (e) => {
-            const result = await pairTestFiles([...(e.target.files ?? [])]);
-            setPairs(result.pairs);
-            setUnpaired(result.unpaired);
+            setReading(true);
+            try {
+              const result = await pairTestFiles([...(e.target.files ?? [])]);
+              setPairs(result.pairs);
+              setSkipped(result.skipped);
+            } catch (err) {
+              toast.error(errorText(err));
+            } finally {
+              setReading(false);
+            }
           }}
         />
-        {(pairs.length > 0 || unpaired.length > 0) && (
-          <div className="rounded-md bg-muted px-3 py-2 text-xs">
-            <p>{t.importPairs(pairs.length)}: {pairs.map((p) => p.name).join(', ')}</p>
-            {unpaired.length > 0 && <p className="mt-1 text-destructive">{t.importUnpaired(unpaired.join(', '))}</p>}
+        {reading && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" />
+            {t.importReading}
+          </p>
+        )}
+        {!reading && (pairs.length > 0 || skipped.length > 0) && (
+          <div className="max-h-48 overflow-y-auto rounded-md bg-muted px-3 py-2 text-xs">
+            <p>
+              {t.importPairs(pairs.length)}
+              {pairs.length > 0 && `: ${pairs.map((p) => p.name).join(', ')}`}
+            </p>
+            {tooMany && <p className="mt-1 text-destructive">{t.importTooMany(MAX_TESTCASES_PER_PROBLEM)}</p>}
+            {skipped.length > 0 && (
+              <div className="mt-1 text-destructive">
+                <p>{t.importSkippedTitle(skipped.length)}</p>
+                <ul className="list-disc pl-4">
+                  {skipped.map((s) => (
+                    <li key={`${s.name}:${s.reason}`} className="break-all">
+                      {s.name} — {t.importSkipped[s.reason]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
         <label className="flex items-center gap-2">
