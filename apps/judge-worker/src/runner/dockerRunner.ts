@@ -4,7 +4,7 @@ import { performance } from 'node:perf_hooks';
 import { Writable } from 'node:stream';
 import type { Container } from 'dockerode';
 import type { Language } from '@judgehint/shared';
-import { docker, SANDBOX_LABEL } from '../docker.js';
+import { docker, SANDBOX_DEADLINE_LABEL, SANDBOX_LABEL, SANDBOX_OWNER_LABEL, WORKER_ID } from '../docker.js';
 import { BINARY_DIR, bootstrapScript, compileScript, LANGUAGES, LOAD_FAILED, STATS_MARKER } from './languages.js';
 
 export interface RunOptions {
@@ -165,11 +165,27 @@ function attachStdin(containerId: string): Promise<Socket> {
 
 const ATTACH_TIMEOUT_MS = 10_000;
 
-/** Removes sandbox containers left behind by a crashed worker. */
-export async function removeLeftoverContainers(): Promise<number> {
-  const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL] } });
-  await Promise.all(leftovers.map((c) => docker.getContainer(c.Id).remove({ force: true }).catch(() => {})));
-  return leftovers.length;
+/** Slack on top of a run's own limits before its container counts as abandoned (slow daemon, clock skew). */
+const LEFTOVER_GRACE_MS = 60_000;
+/** Containers from workers that predate the deadline label: far longer than any run can take. */
+const UNLABELLED_MAX_AGE_MS = 10 * 60_000;
+
+/** Latest moment a live run can still use its container: both attaches, the wall limit, then grace. */
+const containerDeadline = (wallLimitMs: number) => Date.now() + 2 * ATTACH_TIMEOUT_MS + wallLimitMs + LEFTOVER_GRACE_MS;
+
+/**
+ * Removes sandbox containers left behind by a crashed worker. Other workers may share the Docker host
+ * (scale-out, tests, a restarted dev worker), so only containers past their deadline are touched — a
+ * live run always removes its own container long before that.
+ */
+export async function removeLeftoverContainers(now = Date.now()): Promise<number> {
+  const containers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL] } });
+  const expired = containers.filter((c) => {
+    const deadline = Number(c.Labels[SANDBOX_DEADLINE_LABEL]);
+    return now > (Number.isFinite(deadline) && deadline > 0 ? deadline : c.Created * 1000 + UNLABELLED_MAX_AGE_MS);
+  });
+  await Promise.all(expired.map((c) => docker.getContainer(c.Id).remove({ force: true }).catch(() => {})));
+  return expired.length;
 }
 
 interface ContainerJob {
@@ -211,7 +227,11 @@ async function runContainer(job: ContainerJob): Promise<ContainerExit> {
       StdinOnce: true,
       Tty: false,
       NetworkDisabled: true,
-      Labels: { [SANDBOX_LABEL]: '1' },
+      Labels: {
+        [SANDBOX_LABEL]: '1',
+        [SANDBOX_OWNER_LABEL]: WORKER_ID,
+        [SANDBOX_DEADLINE_LABEL]: String(containerDeadline(job.wallLimitMs)),
+      },
       HostConfig: {
         NetworkMode: 'none',
         Memory: memoryBytes,

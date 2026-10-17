@@ -1,7 +1,7 @@
 // Real-container security tests (CLAUDE.md §5). Skipped when Docker or the sandbox images are missing;
 // build them with `pnpm build:sandbox`.
 import { describe, expect, it } from 'vitest';
-import { docker, SANDBOX_LABEL } from '../src/docker.js';
+import { docker, SANDBOX_LABEL, SANDBOX_OWNER_LABEL, WORKER_ID } from '../src/docker.js';
 import { judgeCode, type JudgeInput } from '../src/judge.js';
 import { sandboxReady } from './dockerAvailable.js';
 
@@ -116,7 +116,8 @@ describe.skipIf(!ready)('sandbox — malicious programs', () => {
 
   it('still judges normally afterwards and leaves no containers behind', async () => {
     expect((await judgeCode(one('python', 'print(7)'))).verdict).toBe('ACCEPTED');
-    const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL] } });
+    // Only this process's containers: other workers may be judging on the same Docker host.
+    const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL, `${SANDBOX_OWNER_LABEL}=${WORKER_ID}`] } });
     expect(leftovers).toHaveLength(0);
   });
 });
@@ -219,7 +220,8 @@ describe.skipIf(!ready)('sandbox — C++17', () => {
 
   it('still judges normally afterwards and leaves no containers behind', async () => {
     expect((await judgeCode(one('cpp', cpp('cout << 7 << endl;')))).verdict).toBe('ACCEPTED');
-    const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL] } });
+    // Only this process's containers: other workers may be judging on the same Docker host.
+    const leftovers = await docker.listContainers({ all: true, filters: { label: [SANDBOX_LABEL, `${SANDBOX_OWNER_LABEL}=${WORKER_ID}`] } });
     expect(leftovers).toHaveLength(0);
   });
 });

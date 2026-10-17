@@ -32,12 +32,21 @@ async function checkSandbox() {
       logger.warn(`Sandbox image ${spec!.image} missing — run \`pnpm build:sandbox\``);
     }
   }
+  await sweepLeftovers();
+}
+
+/** How often to look for sandbox containers abandoned by a crashed worker. */
+const SWEEP_INTERVAL_MS = 60_000;
+
+async function sweepLeftovers() {
   const removed = await removeLeftoverContainers().catch(() => 0);
   if (removed) logger.info(`Removed ${removed} leftover sandbox container(s)`);
 }
 
 async function main() {
   await checkSandbox();
+  // Not only at start-up: a crashed worker's container is only safe to remove once its deadline passes.
+  setInterval(() => void sweepLeftovers(), SWEEP_INTERVAL_MS).unref();
 
   const worker = new Worker<SubmissionJobData>(
     QUEUE_SUBMISSIONS,
