@@ -1,13 +1,15 @@
-import { ArrowLeft, Check, Clock, Copy, Cpu, Loader2, Pencil, Play, RotateCcw, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Copy, Cpu, GraduationCap, Loader2, Pencil, Play, RotateCcw, Send, Sparkles } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { LANGUAGE_LABELS, type ProblemDetail, type SampleTest } from '@judgehint/shared';
+import { assignmentStatus, LANGUAGE_LABELS, type AssignmentDetail, type ProblemDetail, type SampleTest } from '@judgehint/shared';
+import { Countdown } from '@/components/Countdown';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { Markdown } from '@/components/Markdown';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useAssignment } from '@/features/classrooms/api';
 import { useProblem } from '@/features/problems/api';
 import { HintPanel } from '@/features/hints/HintPanel';
 import { useCodeDraft } from '@/features/problems/codeDraft';
@@ -110,7 +112,7 @@ function Statement({ problem }: { problem: ProblemDetail }) {
 
 type PanelTab = 'run' | 'result' | 'history';
 
-function Workspace({ problem }: { problem: ProblemDetail }) {
+function Workspace({ problem, assignmentId }: { problem: ProblemDetail; assignmentId?: string }) {
   const { language, setLanguage, code, setCode, reset } = useCodeDraft(problem.id, problem.allowedLanguages);
   const submit = useSubmitCode();
   const [submissionId, setSubmissionId] = useState<string>();
@@ -127,7 +129,7 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
   const onSubmit = async () => {
     setTab('result');
     try {
-      const res = await submit.mutateAsync({ problemId: problem.id, language, code });
+      const res = await submit.mutateAsync({ problemId: problem.id, language, code, assignmentId });
       setSubmissionId(res.submissionId);
     } catch (err) {
       fail(err);
@@ -272,9 +274,34 @@ function Workspace({ problem }: { problem: ProblemDetail }) {
   );
 }
 
+/** Shown when the problem is opened from a class assignment: submissions then count for it. */
+function AssignmentBanner({ assignment }: { assignment: AssignmentDetail }) {
+  const status = assignmentStatus(assignment.startsAt, assignment.endsAt);
+  return (
+    <div className="border-b bg-primary/5 px-4 py-2.5 text-sm lg:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link to={`/assignments/${assignment.id}`} className="flex items-center gap-1.5 font-medium hover:text-primary">
+          <GraduationCap className="size-4 text-primary" />
+          {vi.assignment.banner(assignment.title)}
+        </Link>
+        <Countdown startsAt={assignment.startsAt} endsAt={assignment.endsAt} className="text-xs text-muted-foreground" />
+      </div>
+      {status !== 'ACTIVE' && (
+        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          {status === 'ENDED' ? vi.assignment.bannerEnded : vi.assignment.bannerUpcoming}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ProblemDetailPage() {
   const { slug = '' } = useParams();
+  const [params] = useSearchParams();
   const { data: problem, isLoading, error } = useProblem(slug);
+  const { data: assignment } = useAssignment(params.get('assignment') ?? undefined);
+  // Only attach the assignment when this problem really belongs to it.
+  const inAssignment = assignment && problem && assignment.problems.some((p) => p.id === problem.id) ? assignment : undefined;
 
   if (isLoading) {
     return (
@@ -298,10 +325,11 @@ export function ProblemDetailPage() {
   return (
     <div className="lg:grid lg:h-[calc(100dvh-3.5rem-1px)] lg:grid-cols-2">
       <div className="lg:overflow-y-auto">
+        {inAssignment && <AssignmentBanner assignment={inAssignment} />}
         <Statement problem={problem} />
       </div>
       {/* Keyed by problem so the draft state resets when switching problems. */}
-      <Workspace key={problem.id} problem={problem} />
+      <Workspace key={problem.id} problem={problem} assignmentId={inAssignment?.id} />
     </div>
   );
 }

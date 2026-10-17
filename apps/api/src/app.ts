@@ -6,7 +6,9 @@ import { pinoHttp } from 'pino-http';
 import { env } from './config.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { assignmentsRouter } from './modules/assignments/assignments.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
+import { classroomsRouter } from './modules/classrooms/classrooms.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { hintsRouter } from './modules/hints/hints.routes.js';
 import { problemsRouter } from './modules/problems/problems.routes.js';
@@ -36,6 +38,8 @@ export function createApp() {
   api.use('/problems', problemsRouter);
   api.use('/submissions', submissionsRouter);
   api.use('/hints', hintsRouter);
+  api.use('/classrooms', classroomsRouter);
+  api.use('/assignments', assignmentsRouter);
   api.use(runsRouter);
   app.use('/api', api);
 

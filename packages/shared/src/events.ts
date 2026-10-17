@@ -1,3 +1,4 @@
+import type { Leaderboard } from './classrooms.js';
 import type { Language, Verdict } from './enums.js';
 
 /** Redis pub/sub channel the judge worker publishes progress on. */
@@ -103,7 +104,7 @@ export interface ServerToClientEvents {
   'submission:done': (p: SubmissionDonePayload) => void;
   'run:progress': (p: RunProgressPayload) => void;
   'run:done': (p: RunResult) => void;
-  'leaderboard:update': (p: { assignmentId: string; rows: unknown[] }) => void;
+  'leaderboard:update': (p: Leaderboard) => void;
 }
 
 export type AckResponse = { ok: true } | { ok: false; error: string };

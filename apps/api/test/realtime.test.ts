@@ -12,6 +12,7 @@ import {
 } from '@judgehint/shared';
 import { createApp } from '../src/app.js';
 import { redis } from '../src/lib/redis.js';
+import { setIo } from '../src/realtime/ioRegistry.js';
 import { startJudgeEventBridge } from '../src/realtime/judgeEvents.js';
 import { createSocketServer, type IoServer } from '../src/realtime/socket.js';
 import { createUser } from './helpers.js';
@@ -27,6 +28,7 @@ const clients: Client[] = [];
 beforeAll(async () => {
   server = createServer(createApp());
   io = createSocketServer(server);
+  setIo(io);
   stopBridge = await startJudgeEventBridge(io, redis);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   url = `http://localhost:${(server.address() as AddressInfo).port}`;
@@ -34,6 +36,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   clients.forEach((c) => c.disconnect());
+  setIo(null);
   await stopBridge();
   await new Promise<void>((resolve) => io.close(() => resolve()));
 });
@@ -145,5 +148,54 @@ describe('join:assignment', () => {
     expect(await join(member.auth)).toEqual({ ok: true });
     expect(await join(teacher.auth)).toEqual({ ok: true });
     expect(await join(outsider.auth)).toEqual({ ok: false, error: 'FORBIDDEN' });
+  });
+});
+
+describe('live leaderboard', () => {
+  it('pushes the recomputed leaderboard to the assignment room when an assignment submission is judged', async () => {
+    const teacher = await createUser('TEACHER');
+    const student = await createUser('STUDENT');
+    const problem = await prisma.problem.create({
+      data: { slug: `rt-lb-${Date.now()}`, title: 'RT', statementMd: 'Đề.', difficulty: 'EASY', allowedLanguages: ['python'], authorId: teacher.user.id },
+    });
+    const classroom = await prisma.classroom.create({
+      data: { name: 'Lớp RT', joinCode: `R${Date.now()}`.slice(0, 12), teacherId: teacher.user.id, enrollments: { create: { userId: student.user.id } } },
+    });
+    const assignment = await prisma.assignment.create({
+      data: {
+        classroomId: classroom.id,
+        title: 'RT',
+        startsAt: new Date(Date.now() - 600e3),
+        endsAt: new Date(Date.now() + 600e3),
+        problems: { create: { problemId: problem.id, points: 100 } },
+      },
+    });
+
+    // The teacher watches the board; the student is the one who solves.
+    const watcher = client(teacher.auth);
+    await connected(watcher);
+    expect(await watcher.emitWithAck('join:assignment', { assignmentId: assignment.id })).toEqual({ ok: true });
+
+    const sub = await prisma.submission.create({
+      data: { userId: student.user.id, problemId: problem.id, assignmentId: assignment.id, language: 'python', code: 'x', verdict: 'ACCEPTED' },
+    });
+    const update = new Promise<{ assignmentId: string; rows: { userId: string; totalScore: number; rank: number }[] }>((resolve) =>
+      watcher.once('leaderboard:update', resolve),
+    );
+    await publish({
+      type: 'done',
+      submissionId: sub.id,
+      userId: student.user.id,
+      assignmentId: assignment.id,
+      verdict: 'ACCEPTED',
+      passedCount: 1,
+      totalCount: 1,
+      runtimeMs: 10,
+      memoryKb: 1000,
+    });
+
+    const board = await update;
+    expect(board.assignmentId).toBe(assignment.id);
+    expect(board.rows[0]).toMatchObject({ userId: student.user.id, totalScore: 100, rank: 1 });
   });
 });

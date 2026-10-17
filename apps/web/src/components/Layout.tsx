@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const navItems: { to: string; label: string; roles?: Role[] }[] = [
   { to: '/problems', label: vi.nav.problems },
   { to: '/submissions', label: vi.nav.submissions },
-  { to: '/leaderboard', label: vi.nav.leaderboard },
+  { to: '/classrooms', label: vi.nav.classrooms },
   { to: '/teacher', label: vi.nav.teacher, roles: ['TEACHER', 'ADMIN'] },
 ];
 

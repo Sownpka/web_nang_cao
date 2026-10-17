@@ -13,6 +13,10 @@ const ProblemDetailPage = lazy(() => import('@/pages/ProblemDetailPage').then((m
 const ProblemEditorPage = lazy(() => import('@/pages/teacher/ProblemEditorPage').then((m) => ({ default: m.ProblemEditorPage })));
 const SubmissionsPage = lazy(() => import('@/pages/SubmissionsPage').then((m) => ({ default: m.SubmissionsPage })));
 const SubmissionDetailPage = lazy(() => import('@/pages/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })));
+const ClassroomsPage = lazy(() => import('@/pages/ClassroomsPage').then((m) => ({ default: m.ClassroomsPage })));
+const ClassroomDetailPage = lazy(() => import('@/pages/ClassroomDetailPage').then((m) => ({ default: m.ClassroomDetailPage })));
+const AssignmentPage = lazy(() => import('@/pages/AssignmentPage').then((m) => ({ default: m.AssignmentPage })));
+const AssignmentEditorPage = lazy(() => import('@/pages/teacher/AssignmentEditorPage').then((m) => ({ default: m.AssignmentEditorPage })));
 const TeacherProblemsPage = lazy(() => import('@/pages/teacher/TeacherProblemsPage').then((m) => ({ default: m.TeacherProblemsPage })));
 
 const STAFF = ['TEACHER', 'ADMIN'] as const;
@@ -53,6 +57,46 @@ export function App() {
           element={
             <RequireAuth>
               <SubmissionDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="classrooms"
+          element={
+            <RequireAuth>
+              <ClassroomsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="classrooms/:id"
+          element={
+            <RequireAuth>
+              <ClassroomDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="classrooms/:classroomId/assignments/new"
+          element={
+            <RequireAuth roles={STAFF}>
+              <AssignmentEditorPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="assignments/:id"
+          element={
+            <RequireAuth>
+              <AssignmentPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="assignments/:id/edit"
+          element={
+            <RequireAuth roles={STAFF}>
+              <AssignmentEditorPage />
             </RequireAuth>
           }
         />

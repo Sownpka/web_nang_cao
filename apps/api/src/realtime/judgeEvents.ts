@@ -1,6 +1,7 @@
 import type { Redis } from 'ioredis';
 import { JUDGE_EVENTS_CHANNEL, userRoom, type JudgeEvent } from '@judgehint/shared';
 import { logger } from '../lib/logger.js';
+import { scheduleLeaderboardRefresh } from '../modules/leaderboard/leaderboard.service.js';
 import type { IoServer } from './socket.js';
 
 /** Routes one worker event to the owner's sockets. */
@@ -36,7 +37,10 @@ export async function startJudgeEventBridge(io: IoServer, redis: Redis): Promise
   const subscriber = redis.duplicate();
   subscriber.on('message', (_channel: string, message: string) => {
     try {
-      forwardJudgeEvent(io, JSON.parse(message) as JudgeEvent);
+      const event = JSON.parse(message) as JudgeEvent;
+      forwardJudgeEvent(io, event);
+      // A judged assignment submission can change the class leaderboard.
+      if (event.type === 'done' && event.assignmentId) scheduleLeaderboardRefresh(event.assignmentId);
     } catch (err) {
       logger.warn({ err: (err as Error).message }, 'ignored malformed judge event');
     }

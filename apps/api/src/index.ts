@@ -5,12 +5,14 @@ import { env } from './config.js';
 import { logger } from './lib/logger.js';
 import { closeQueues } from './lib/queue.js';
 import { redis } from './lib/redis.js';
+import { setIo } from './realtime/ioRegistry.js';
 import { startJudgeEventBridge } from './realtime/judgeEvents.js';
 import { createSocketServer } from './realtime/socket.js';
 
 const app = createApp();
 const server = createServer(app);
 const io = createSocketServer(server);
+setIo(io);
 const stopBridge = await startJudgeEventBridge(io, redis);
 
 server.listen(env.API_PORT, () => {
