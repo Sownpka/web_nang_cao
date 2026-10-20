@@ -14,7 +14,7 @@ cp .env.example .env          # rồi điền JWT_ACCESS_SECRET / JWT_REFRESH_SE
 pnpm install                  # tự chạy prisma generate
 pnpm db:up                    # Postgres (cổng 5433) + Redis (6379)
 pnpm db:migrate               # áp migration
-pnpm db:seed                  # 5 tài khoản demo, 7 bài, 1 lớp + 1 assignment
+pnpm db:seed                  # 5 tài khoản demo, 15 bài, 1 lớp + 1 assignment
 pnpm dev                      # web :5173, api :4000, judge-worker
 ```
 
