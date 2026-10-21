@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Báo cáo JudgeHint</title>
+<style>
+  @page { size: A4; margin: 16mm 17mm 16mm 17mm; }
+  :root { --ink: #1a1a1a; --muted: #555; --line: #c9c9c9; --accent: #1f4e8c; --soft: #eef3fa; --warn: #fff6db; }
+  * { box-sizing: border-box; }
+  html { background: #fff; }
+  body { font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.4; color: var(--ink); margin: 0; }
+  h1 { font-size: 19pt; margin: 0 0 2mm; color: var(--accent); line-height: 1.2; }
+  h2 { font-size: 13.5pt; color: var(--accent); margin: 5mm 0 2mm; padding-bottom: 1mm; border-bottom: 1.2px solid var(--accent); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 3mm 0 1.2mm; break-after: avoid; }
+  p { margin: 0 0 2mm; text-align: justify; }
+  ul, ol { margin: 0 0 2mm; padding-left: 6mm; }
+  li { margin-bottom: .6mm; }
+  code, pre { font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; }
+  code { background: #f2f2f2; padding: 0 1mm; border-radius: 2px; }
+  pre { background: #f6f7f9; border: 1px solid #e1e4e8; border-radius: 3px; padding: 2mm 3mm; margin: 1mm 0 2.5mm; white-space: pre-wrap; line-height: 1.32; break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 3mm; font-size: 10pt; break-inside: auto; }
+  th, td { border: 1px solid var(--line); padding: 1mm 1.6mm; vertical-align: top; text-align: left; }
+  th { background: var(--soft); font-weight: bold; }
+  tr { break-inside: avoid; }
+  table.keep { break-inside: avoid; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .meta { width: 100%; font-size: 10.5pt; margin: 2mm 0 3mm; }
+  .meta td { border: none; padding: .4mm 2mm .4mm 0; }
+  .meta td:first-child { color: var(--muted); width: 33mm; white-space: nowrap; }
+  .top { display: flex; justify-content: space-between; font-size: 10pt; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 1.5mm; margin-bottom: 4mm; }
+  .fill { background: var(--warn); padding: 0 1mm; }
+  figure { margin: 1mm 0 3mm; break-inside: avoid; }
+  figcaption { font-size: 9.5pt; color: var(--muted); text-align: center; margin-top: 1mm; font-style: italic; }
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .note { background: var(--soft); border-left: 3px solid var(--accent); padding: 1.5mm 3mm; margin: 1mm 0 3mm; font-size: 10.5pt; }
+  .small { font-size: 9.5pt; color: var(--muted); }
+  .pb { break-before: page; }
+</style>
+</head>
+<body>
+
+<div class="top"><span>Trường Đại học Phenikaa — Khoa Công nghệ Thông tin</span><span>Lập trình Web nâng cao — Báo cáo cuối kỳ</span></div>
+
+<h1>JudgeHint — Hệ thống chấm bài lập trình tự động có AI gợi ý lỗi</h1>
+<table class="meta">
+  <tr><td>Nhóm</td><td><span class="fill">[Tên nhóm]</span></td></tr>
+  <tr><td>Thành viên</td><td><span class="fill">[Họ tên 1 – MSSV]</span>, <span class="fill">[Họ tên 2 – MSSV]</span>, <span class="fill">[Họ tên 3 – MSSV]</span>, <span class="fill">[Họ tên 4 – MSSV]</span></td></tr>
+  <tr><td>Giảng viên</td><td><span class="fill">[Tên giảng viên]</span></td></tr>
+  <tr><td>Mã nguồn</td><td><span class="fill">[https://github.com/&lt;org&gt;/judgehint]</span> — tag <code>final</code></td></tr>
+  <tr><td>Bản deploy</td><td><span class="fill">[https://judge.hxnos.com]</span> — tài khoản demo ở mục 8</td></tr>
+</table>
+
+<h2>1. Bài toán và người dùng</h2>
+<p>Trong các học phần lập trình, giảng viên phải chấm thủ công hàng trăm bài nộp, sinh viên thường chỉ nhận được kết quả "đúng/sai" sau nhiều ngày và không biết mình sai ở đâu. Các nền tảng như LeetCode, Codeforces chấm tự động nhưng không gắn với lớp học, còn các chatbot AI thì đưa thẳng lời giải, làm mất giá trị bài tập. <b>JudgeHint</b> là một hệ thống kiểu LeetCode thu nhỏ cho lớp học: chấm tự động trong sandbox an toàn, trả kết quả trực tiếp trong vài giây, và khi sinh viên làm sai thì AI <i>gợi ý theo từng mức</i> mà không bao giờ đưa code lời giải.</p>
+<table>
+  <tr><th style="width:22%">Người dùng</th><th>Chức năng chính</th></tr>
+  <tr><td>Sinh viên</td><td>Đăng ký bằng mã sinh viên, tham gia lớp bằng mã lớp; xem đề, viết code Python/JavaScript/C++ trên trình soạn thảo Monaco; <i>Chạy thử</i> với test công khai; <i>Nộp bài</i> và xem tiến độ chấm từng test theo thời gian thực; mở gợi ý AI 3 mức (mỗi mức trừ 10% điểm); xem lịch sử nộp, bảng xếp hạng trực tiếp, hồ sơ cá nhân có biểu đồ.</td></tr>
+  <tr><td>Giảng viên</td><td>Tạo/sửa bài (đề Markdown có preview, giới hạn thời gian/bộ nhớ, lời giải mẫu, bật/tắt AI); quản lý test công khai/ẩn, nhập hàng loạt từ file <code>.in/.out</code> hoặc <code>.zip</code>; tạo lớp, giao bài tập có hạn (assignment); xem báo cáo lớp và xuất CSV.</td></tr>
+  <tr><td>Quản trị viên</td><td>Toàn quyền như giảng viên trên mọi lớp và mọi bài.</td></tr>
+</table>
+<p><b>Tiêu chí hoàn thành</b> nhóm tự đặt ra: (1) kết quả chấm &lt; 10 giây, trạng thái đổi không cần tải lại trang; (2) code độc (vòng lặp vô hạn, fork bomb, gọi mạng, ghi file lớn, đọc file hệ thống) bị chặn mà server không sập; (3) gợi ý AI 3 mức, hiện dần từng chữ, có bước kiểm tra rò rỉ lời giải; (4) bảng xếp hạng nhảy hạng trực tiếp; (5) phân quyền đúng — sinh viên không xem được test ẩn. Cả năm tiêu chí đều đã đạt và có test tự động kiểm chứng (mục 6).</p>
+
+<h2>2. Kiến trúc hệ thống</h2>
+<figure>
+<svg viewBox="0 0 760 330" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="11">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker>
+  </defs>
+  <style>
+    .box { fill: #fff; stroke: #1f4e8c; stroke-width: 1.4; rx: 6; }
+    .ext { fill: #f4f4f4; stroke: #777; stroke-width: 1.2; stroke-dasharray: 4 3; rx: 6; }
+    .sand { fill: #fff6db; stroke: #b07d00; stroke-width: 1.2; rx: 4; }
+    .t { font-weight: 700; fill: #1a1a1a; font-size: 12px; }
+    .s { fill: #444; font-size: 10.5px; }
+    .l { stroke: #333; stroke-width: 1.2; fill: none; marker-end: url(#a); }
+    .lab { fill: #1f4e8c; font-size: 10px; }
+    .zone { fill: none; stroke: #9ab; stroke-dasharray: 6 4; rx: 10; }
+  </style>
+  <rect class="zone" x="150" y="8" width="600" height="314"/>
+  <text x="160" y="24" class="s">Docker Compose (home server / máy local) — một lệnh: docker compose up</text>
+
+  <rect class="ext" x="8" y="120" width="120" height="70"/>
+  <text x="68" y="145" text-anchor="middle" class="t">Trình duyệt</text>
+  <text x="68" y="162" text-anchor="middle" class="s">React 18 + Vite</text>
+  <text x="68" y="176" text-anchor="middle" class="s">Monaco, TanStack Query</text>
+
+  <rect class="box" x="170" y="120" width="130" height="70"/>
+  <text x="235" y="143" text-anchor="middle" class="t">web (nginx)</text>
+  <text x="235" y="160" text-anchor="middle" class="s">file tĩnh React</text>
+  <text x="235" y="174" text-anchor="middle" class="s">proxy /api, /socket.io</text>
+
+  <rect class="box" x="345" y="105" width="150" height="100"/>
+  <text x="420" y="128" text-anchor="middle" class="t">api (Express 5)</text>
+  <text x="420" y="146" text-anchor="middle" class="s">REST + Zod validate</text>
+  <text x="420" y="161" text-anchor="middle" class="s">JWT + RBAC</text>
+  <text x="420" y="176" text-anchor="middle" class="s">Socket.IO · SSE gợi ý</text>
+  <text x="420" y="191" text-anchor="middle" class="s">leak guard</text>
+
+  <rect class="box" x="560" y="40" width="170" height="52"/>
+  <text x="645" y="62" text-anchor="middle" class="t">PostgreSQL 16</text>
+  <text x="645" y="79" text-anchor="middle" class="s">Prisma ORM</text>
+
+  <rect class="box" x="560" y="130" width="170" height="64"/>
+  <text x="645" y="151" text-anchor="middle" class="t">Redis 7</text>
+  <text x="645" y="167" text-anchor="middle" class="s">BullMQ "submissions"</text>
+  <text x="645" y="182" text-anchor="middle" class="s">pub/sub · xếp hạng · rate limit</text>
+
+  <rect class="box" x="345" y="242" width="150" height="62"/>
+  <text x="420" y="265" text-anchor="middle" class="t">judge-worker</text>
+  <text x="420" y="282" text-anchor="middle" class="s">BullMQ consumer, dockerode</text>
+  <text x="420" y="296" text-anchor="middle" class="s">concurrency 2</text>
+
+  <rect class="sand" x="560" y="236" width="170" height="74"/>
+  <text x="645" y="256" text-anchor="middle" class="t">Docker daemon</text>
+  <rect class="sand" x="575" y="266" width="44" height="34"/><rect class="sand" x="623" y="266" width="44" height="34"/><rect class="sand" x="671" y="266" width="44" height="34"/>
+  <text x="597" y="287" text-anchor="middle" class="s">py</text><text x="645" y="287" text-anchor="middle" class="s">node</text><text x="693" y="287" text-anchor="middle" class="s">g++</text>
+
+  <rect class="ext" x="170" y="242" width="130" height="62"/>
+  <text x="235" y="266" text-anchor="middle" class="t">9router (LLM)</text>
+  <text x="235" y="283" text-anchor="middle" class="s">API tương thích OpenAI</text>
+
+  <path class="l" d="M128 155 H168"/>
+  <path class="l" d="M300 155 H343"/>
+  <text x="304" y="148" class="lab">HTTP · WS</text>
+  <path class="l" d="M495 130 C530 110 530 70 558 66"/>
+  <text x="508" y="92" class="lab">SQL</text>
+  <path class="l" d="M495 162 H558"/>
+  <text x="510" y="157" class="lab">enqueue</text>
+  <path class="l" style="marker-start:url(#a)" d="M610 196 C610 225 540 240 497 262"/>
+  <text x="500" y="232" class="lab">job ↓ / tiến độ ↑</text>
+  <path class="l" d="M495 272 H558"/>
+  <text x="503" y="267" class="lab">container</text>
+  <path class="l" d="M380 205 C350 225 320 240 300 258"/>
+  <text x="303" y="225" class="lab">stream</text>
+</svg>
+<figcaption>Hình 1. Kiến trúc triển khai (khớp với <code>docker-compose.yml</code>): API không bao giờ chạy code người dùng; chỉ judge-worker được nói chuyện với Docker.</figcaption>
+</figure>
+<p><b>Luồng nộp bài:</b> trình duyệt gọi <code>POST /api/submissions</code> → API kiểm tra quyền, lưu bản ghi <code>PENDING</code>, đẩy job vào hàng đợi BullMQ và trả ngay <code>202</code>. Judge-worker lấy job, chạy từng test trong một container riêng, sau mỗi test <i>publish</i> tiến độ lên kênh Redis <code>judge-events</code>. API đăng ký kênh này và phát sự kiện Socket.IO <code>submission:progress</code>/<code>submission:done</code> vào đúng phòng <code>user:{id}</code>; nếu có AC trong assignment thì tính lại bảng xếp hạng và phát <code>leaderboard:update</code> vào phòng <code>assignment:{id}</code>.</p>
+<h3>Lý do chọn công nghệ</h3>
+<ul>
+  <li><b>Tách worker khỏi API qua hàng đợi (BullMQ/Redis):</b> chấm bài tốn vài giây và tốn CPU; nếu chạy trong API thì một đợt nộp bài dồn dập sẽ làm treo cả web. Hàng đợi cho phép giới hạn số bài chấm song song (<code>JUDGE_CONCURRENCY</code>), tự thử lại khi lỗi hạ tầng và mở rộng ngang bằng cách chạy thêm worker. Đây cũng là ranh giới bảo mật: chỉ container worker được gắn Docker socket.</li>
+  <li><b>Socket.IO cho tiến độ chấm, SSE cho gợi ý AI:</b> tiến độ chấm và bảng xếp hạng là sự kiện server đẩy tới nhiều người theo phòng, cần tự kết nối lại → Socket.IO. Gợi ý AI là một luồng một chiều cho một request → SSE đơn giản hơn, đi qua proxy dễ dàng.</li>
+  <li><b>PostgreSQL + Prisma:</b> dữ liệu có quan hệ chặt (lớp – thành viên – assignment – bài – bài nộp – gợi ý), cần ràng buộc khóa ngoại và truy vấn tổng hợp cho bảng xếp hạng/báo cáo. Prisma cho kiểu TypeScript sinh tự động và migration có phiên bản.</li>
+  <li><b>Monorepo pnpm + gói <code>shared</code>:</b> enum (<code>Verdict</code>, <code>Role</code>, <code>Language</code>), schema Zod và kiểu sự kiện Socket.IO dùng chung giữa frontend và backend, nên một thay đổi hợp đồng API bị TypeScript bắt lỗi ở cả hai phía.</li>
+  <li><b>JWT access 15 phút trong bộ nhớ + refresh token trong cookie <code>httpOnly</code>:</b> access token không nằm trong <code>localStorage</code> nên XSS không lấy được phiên dài hạn; refresh token được xoay vòng mỗi lần dùng và chỉ lưu dạng băm SHA-256 trong DB.</li>
+</ul>
+
+<h2>3. Danh sách API chính</h2>
+<p>Tất cả API có tiền tố <code>/api</code>, nhận/trả JSON, input được validate bằng Zod; lỗi trả về thống nhất dạng <code>{ "error": { "code", "message" } }</code> với thông điệp tiếng Việt, do một middleware xử lý lỗi tập trung sinh ra.</p>
+<table class="keep">
+  <tr><th style="width:9%">Method</th><th style="width:33%">Đường dẫn</th><th style="width:17%">Quyền</th><th>Mô tả</th></tr>
+  <tr><td>POST</td><td><code>/auth/register</code>, <code>/auth/login</code></td><td>công khai</td><td>Đăng ký (mã SV), đăng nhập bằng email hoặc mã SV; giới hạn tần suất</td></tr>
+  <tr><td>POST</td><td><code>/auth/refresh</code>, <code>/auth/logout</code></td><td>cookie</td><td>Xoay vòng refresh token, phát hiện token bị dùng lại</td></tr>
+  <tr><td>GET</td><td><code>/me</code>, <code>/me/stats</code></td><td>đăng nhập</td><td>Thông tin và thống kê cá nhân (biểu đồ hồ sơ)</td></tr>
+  <tr><td>GET</td><td><code>/problems</code>, <code>/problems/:slug</code></td><td>đăng nhập</td><td>Danh sách (lọc độ khó, tìm tên), chi tiết kèm test <b>công khai</b></td></tr>
+  <tr><td>POST/PUT/DELETE</td><td><code>/problems</code>, <code>/problems/:id</code></td><td>TEACHER, ADMIN</td><td>CRUD bài; chỉ tác giả hoặc admin được sửa</td></tr>
+  <tr><td>CRUD</td><td><code>/problems/:id/testcases</code> (+ <code>/bulk</code>)</td><td>TEACHER, ADMIN</td><td>Quản lý test case, nhập hàng loạt</td></tr>
+  <tr><td>POST</td><td><code>/submissions</code></td><td>đăng nhập</td><td>Nộp bài → <code>202 { submissionId }</code>; 1 lần / 5 giây / người</td></tr>
+  <tr><td>GET</td><td><code>/submissions</code>, <code>/submissions/:id</code></td><td>chủ sở hữu / GV</td><td>Lịch sử, chi tiết bài nộp (ẩn input của test ẩn)</td></tr>
+  <tr><td>POST</td><td><code>/problems/:id/run-samples</code></td><td>đăng nhập</td><td>Chạy thử với test công khai, không tính điểm</td></tr>
+  <tr><td>GET</td><td><code>/hints/stream?submissionId=&amp;level=</code></td><td>chủ bài nộp</td><td>SSE: gợi ý AI mức 1–3, có cache và hạn mức/ngày</td></tr>
+  <tr><td>POST</td><td><code>/classrooms</code>, <code>/classrooms/join</code></td><td>GV / SV</td><td>Tạo lớp; tham gia bằng mã lớp</td></tr>
+  <tr><td>GET/POST</td><td><code>/classrooms/:id/assignments</code></td><td>thành viên / GV</td><td>Xem và giao bài tập có hạn</td></tr>
+  <tr><td>GET</td><td><code>/assignments/:id/leaderboard</code></td><td>thành viên lớp</td><td>Bảng xếp hạng (cache Redis sorted set)</td></tr>
+  <tr><td>GET</td><td><code>/teacher/assignments/:id/report</code></td><td>GV của lớp</td><td>Thống kê lớp, xuất CSV</td></tr>
+</table>
+<p class="small">Socket.IO (xác thực bằng access token khi handshake): client gửi <code>join:assignment</code>; server phát <code>submission:progress</code>, <code>submission:done</code>, <code>leaderboard:update</code>. Đầy đủ 38 route nằm trong <code>apps/api/src/modules/*/*.routes.ts</code>.</p>
+
+<h2>4. Mô hình dữ liệu</h2>
+<figure>
+<svg viewBox="0 0 760 250" width="100%" xmlns="http://www.w3.org/2000/svg" font-size="10.5">
+  <style>
+    .e { fill: #fff; stroke: #1f4e8c; stroke-width: 1.3; }
+    .h { fill: #1f4e8c; }
+    .ht { fill: #fff; font-weight: 700; font-size: 11.5px; }
+    .f { fill: #333; font-size: 10px; }
+    .r { stroke: #555; stroke-width: 1.1; fill: none; }
+    .c { fill: #1f4e8c; font-size: 9.5px; }
+  </style>
+  <!-- User -->
+  <rect class="e" x="10" y="10" width="140" height="92"/><rect class="h" x="10" y="10" width="140" height="18"/>
+  <text x="80" y="23" text-anchor="middle" class="ht">User</text>
+  <text x="16" y="42" class="f">email (unique)</text><text x="16" y="55" class="f">passwordHash (bcrypt)</text><text x="16" y="68" class="f">studentCode (unique)</text><text x="16" y="81" class="f">role (enum Role)</text><text x="16" y="94" class="f">fullName</text>
+  <!-- RefreshToken -->
+  <rect class="e" x="10" y="150" width="140" height="66"/><rect class="h" x="10" y="150" width="140" height="18"/>
+  <text x="80" y="163" text-anchor="middle" class="ht">RefreshToken</text>
+  <text x="16" y="182" class="f">tokenHash (SHA-256)</text><text x="16" y="195" class="f">expiresAt, revokedAt</text><text x="16" y="208" class="f">userId → User</text>
+  <!-- Classroom -->
+  <rect class="e" x="205" y="10" width="130" height="66"/><rect class="h" x="205" y="10" width="130" height="18"/>
+  <text x="270" y="23" text-anchor="middle" class="ht">Classroom</text>
+  <text x="211" y="42" class="f">name</text><text x="211" y="55" class="f">joinCode (unique)</text><text x="211" y="68" class="f">teacherId → User</text>
+  <!-- Enrollment -->
+  <rect class="e" x="205" y="110" width="130" height="40"/><rect class="h" x="205" y="110" width="130" height="18"/>
+  <text x="270" y="123" text-anchor="middle" class="ht">Enrollment</text>
+  <text x="211" y="142" class="f">PK (userId, classroomId)</text>
+  <!-- Assignment -->
+  <rect class="e" x="390" y="10" width="140" height="66"/><rect class="h" x="390" y="10" width="140" height="18"/>
+  <text x="460" y="23" text-anchor="middle" class="ht">Assignment</text>
+  <text x="396" y="42" class="f">title</text><text x="396" y="55" class="f">startsAt, endsAt</text><text x="396" y="68" class="f">classroomId → Classroom</text>
+  <!-- AssignmentProblem -->
+  <rect class="e" x="390" y="110" width="140" height="52"/><rect class="h" x="390" y="110" width="140" height="18"/>
+  <text x="460" y="123" text-anchor="middle" class="ht">AssignmentProblem</text>
+  <text x="396" y="142" class="f">PK (assignment, problem)</text><text x="396" y="155" class="f">points</text>
+  <!-- Problem -->
+  <rect class="e" x="590" y="10" width="160" height="118"/><rect class="h" x="590" y="10" width="160" height="18"/>
+  <text x="670" y="23" text-anchor="middle" class="ht">Problem</text>
+  <text x="596" y="42" class="f">slug (unique), title</text><text x="596" y="55" class="f">statementMd, difficulty</text><text x="596" y="68" class="f">timeLimitMs, memoryLimitMb</text><text x="596" y="81" class="f">allowedLanguages[]</text><text x="596" y="94" class="f">aiHintsEnabled</text><text x="596" y="107" class="f">referenceSolution (chỉ GV)</text><text x="596" y="120" class="f">authorId → User</text>
+  <!-- TestCase -->
+  <rect class="e" x="590" y="170" width="160" height="66"/><rect class="h" x="590" y="170" width="160" height="18"/>
+  <text x="670" y="183" text-anchor="middle" class="ht">TestCase</text>
+  <text x="596" y="202" class="f">order, input, expected</text><text x="596" y="215" class="f">isHidden</text><text x="596" y="228" class="f">problemId → Problem</text>
+  <!-- Submission -->
+  <rect class="e" x="205" y="170" width="200" height="72"/><rect class="h" x="205" y="170" width="200" height="18"/>
+  <text x="305" y="183" text-anchor="middle" class="ht">Submission</text>
+  <text x="211" y="202" class="f">language, code, verdict</text><text x="211" y="215" class="f">passedCount, runtimeMs, memoryKb</text><text x="211" y="228" class="f">→ User, Problem, Assignment?</text>
+  <!-- Hint -->
+  <rect class="e" x="430" y="180" width="140" height="56"/><rect class="h" x="430" y="180" width="140" height="18"/>
+  <text x="500" y="193" text-anchor="middle" class="ht">Hint</text>
+  <text x="436" y="212" class="f">level 1..3, content, blocked</text><text x="436" y="225" class="f">unique(submission, level)</text>
+  <!-- relations -->
+  <path class="r" d="M80 102 V150"/><text x="84" y="130" class="c">1 – n</text>
+  <path class="r" d="M150 40 H205"/><text x="158" y="36" class="c">dạy 1–n</text>
+  <path class="r" d="M150 90 C180 95 185 125 205 128"/><text x="160" y="118" class="c">n–n</text>
+  <path class="r" d="M270 76 V110"/>
+  <path class="r" d="M335 40 H390"/><text x="345" y="36" class="c">1 – n</text>
+  <path class="r" d="M460 76 V110"/>
+  <path class="r" d="M530 128 C560 128 565 100 590 98"/><text x="548" y="122" class="c">n–n</text>
+  <path class="r" d="M670 128 V170"/><text x="676" y="152" class="c">1 – n</text>
+  <path class="r" d="M150 100 C180 140 190 190 205 200"/>
+  <path class="r" d="M405 206 H430"/><text x="408" y="200" class="c">1–3</text>
+  <path class="r" d="M590 122 C560 172 440 170 405 186"/>
+</svg>
+<figcaption>Hình 2. Mô hình dữ liệu (Prisma, 10 bảng). Các khóa ngoại dùng <code>onDelete: Cascade</code> trừ <code>Submission.assignmentId</code> (SetNull).</figcaption>
+</figure>
+<p>Một số quyết định đáng chú ý: <code>Hint</code> có ràng buộc duy nhất <code>(submissionId, level)</code> nên mở lại một mức không gọi LLM lần nữa (cache ở tầng DB); <code>Submission</code> có chỉ mục <code>(userId, problemId)</code> cho trang lịch sử và <code>(assignmentId, createdAt)</code> cho việc tính bảng xếp hạng; <code>referenceSolution</code> không bao giờ được trả về cho sinh viên mà chỉ dùng cho leak guard. Schema được quản lý bằng 3 migration Prisma có phiên bản trong <code>prisma/migrations</code>.</p>
+
+<h2>5. Kỹ thuật nổi bật</h2>
+<h3>5.1. Sandbox chấm bài an toàn</h3>
+<p>Mỗi lần chạy một test là một container mới, bị khóa chặt rồi xóa ngay trong <code>finally</code>. Code được truyền qua biến môi trường và stdin, không gắn bất kỳ thư mục nào của máy chủ vào container:</p>
+<pre>// apps/judge-worker/src/runner/dockerRunner.ts (rút gọn)
+User: '65534:65534',                                  // nobody
+HostConfig: {
+  NetworkMode: 'none',                                // không mạng
+  Memory: memoryBytes, MemorySwap: memoryBytes,       // không swap
+  NanoCpus: 0.5e9, PidsLimit: 64,                     // chặn fork bomb
+  ReadonlyRootfs: true,                               // rootfs chỉ đọc
+  Tmpfs: { '/tmp': 'rw,size=16m,noexec,nosuid,nodev' },
+  CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges'],
+  Ulimits: [{ Name: 'fsize', Soft: 1 << 20, Hard: 1 << 20 }],  // ghi tối đa 1MB
+}</pre>
+<p>Thời gian bị giới hạn hai lớp: CPU time đo từ cgroup so với <code>timeLimitMs</code>, và một bộ hẹn giờ thời gian thực (2× giới hạn + 1 giây) sẽ <code>kill</code> container nếu chương trình treo. Container bị OOM-kill → <code>MEMORY_LIMIT_EXCEEDED</code>; exit code ≠ 0 → <code>RUNTIME_ERROR</code> kèm 2KB cuối stderr. C++ được biên dịch một lần trong container riêng (timeout 10 giây, có sẵn precompiled header <code>bits/stdc++.h</code> giúp giảm thời gian biên dịch từ ~5 giây xuống ~1,5 giây) rồi binary được bơm qua stdin vào một tmpfs nhỏ có quyền thực thi. Khi worker khởi động, nó dọn các container "mồ côi" đã quá hạn, phòng trường hợp worker trước bị sập giữa chừng.</p>
+<p><b>Khó khăn thực tế:</b> thư viện <code>dockerode</code> khi attach stdin hoặc gửi option dưới dạng body (bị Docker coi là dữ liệu stdin), hoặc không gửi header đi. Nhóm phải tự viết request HTTP <code>Upgrade: tcp</code> để mở một kết nối chỉ-stdin và chỉ ghi dữ liệu sau khi Docker nâng cấp kết nối. Khi đóng gói worker vào container Linux, phép đo hiệu năng còn phát hiện thêm một lỗi chỉ xuất hiện trên Linux (đường dẫn socket Docker được thư viện trả về dạng hàm chứ không phải chuỗi) — đã sửa và được CI trên Ubuntu kiểm tra.</p>
+
+<h3>5.2. Gợi ý AI ba mức và leak guard</h3>
+<p>API gửi cho LLM (qua 9router, giao thức tương thích OpenAI): đề bài, code của sinh viên, verdict, test công khai bị sai (input/expected/actual) hoặc chỉ "sai ở test ẩn số N" — <b>không bao giờ gửi nội dung test ẩn</b> — cùng các gợi ý đã đưa trước đó. System prompt yêu cầu không viết code, không nói cách sửa, và coi mọi thứ nằm giữa <code>&lt;&lt;&lt;BEGIN …&gt;&gt;&gt;</code>/<code>&lt;&lt;&lt;END …&gt;&gt;&gt;</code> là dữ liệu chứ không phải mệnh lệnh (chống prompt injection qua comment trong code). Vì prompt thôi là chưa đủ, mọi câu trả lời đi qua <b>leak guard</b> (<code>apps/api/src/ai/leak-guard.ts</code>) trước khi đến tay sinh viên:</p>
+<ol>
+  <li>Chặn khối code dài hơn 2 dòng, và mọi dòng "trông giống code" (chấm điểm theo phép gán, lời gọi hàm, toán tử, từ khóa) mà không có trong code của chính sinh viên.</li>
+  <li>Nếu bài có lời giải mẫu: so khớp 4-gram token giữa gợi ý và lời giải (bỏ những 4-gram sinh viên đã tự viết); vượt ngưỡng 25% → chặn.</li>
+  <li>Chặn câu chỉ dẫn cách sửa bằng lời ("hãy khởi tạo…", "đổi thành…") và chặn mức 1 nếu nhắc số dòng hoặc trích code.</li>
+  <li>Bị chặn → gọi lại LLM một lần với nhắc nhở mạnh hơn; vẫn bị chặn → trả gợi ý mặc định của mức đó.</li>
+</ol>
+<p>Leak guard cần câu trả lời hoàn chỉnh, nên luồng SSE chia làm hai pha: trong lúc mô hình sinh và guard kiểm tra, server chỉ gửi sự kiện <code>status</code> (đang soạn / đang kiểm tra / đang viết lại, kèm số ký tự) để giao diện hiện trạng thái; chỉ nội dung <i>đã được duyệt</i> mới được phát thành các sự kiện <code>delta</code> nhỏ để hiện dần từng chữ, rồi <code>done</code>. Nhờ vậy sinh viên không bao giờ kịp thấy một câu trả lời bị chặn. Mỗi mức mở trước lần AC đầu tiên trừ 10% điểm bài (tối thiểu còn 50%); hạn mức 20 lượt gợi ý/sinh viên/ngày được đếm trong Redis.</p>
+
+<h3>5.3. Bảng xếp hạng thời gian thực</h3>
+<p>Điểm một bài = <code>points × (1 − 0,1 × số mức gợi ý đã mở)</code>, chỉ tính lần AC đầu tiên trước hạn. Xếp hạng theo tổng điểm giảm dần, rồi tổng thời gian tăng dần (phút từ lúc bắt đầu đến lúc AC, cộng 5 phút phạt cho mỗi lần nộp sai trước đó, không phạt lỗi biên dịch — giống luật ICPC). Mỗi khi có AC, bảng được tính lại, ghi vào Redis sorted set <code>lb:{assignmentId}</code> với điểm số <code>totalScore × 10⁶ − totalTimeMin</code>, và phát tới mọi người đang xem; giao diện tạo hiệu ứng khi một dòng đổi hạng.</p>
+
+<h2>6. Kiểm thử, CI và bảo mật</h2>
+<table>
+  <tr><th style="width:26%">Loại</th><th class="num" style="width:10%">Số test</th><th>Nội dung</th></tr>
+  <tr><td>Unit + integration API (Vitest + Supertest, DB/Redis thật riêng cho test)</td><td class="num">122</td><td>Đăng ký/đăng nhập, xoay vòng và phát hiện dùng lại refresh token, RBAC, CRUD bài &amp; test case (SV không thấy test ẩn), nộp bài + rate limit, gợi ý (cache, hạn mức, thứ tự mức, quyền), leak guard, prompt, tính điểm, bảng xếp hạng, Socket.IO, báo cáo CSV.</td></tr>
+  <tr><td>Judge-worker (Vitest, container Docker thật)</td><td class="num">82</td><td>6 kịch bản code độc bắt buộc: <code>while True</code>, fork bomb, <code>import socket</code> ra ngoài, ghi file 100MB, cấp phát 1GB RAM, đọc <code>/etc/passwd</code> (chỉ thấy file của container, không phải của máy chủ) — đều ra đúng verdict và worker không chết; so sánh output; lời giải mẫu của 15 bài seed phải AC, lời giải "ngây thơ" phải TLE.</td></tr>
+  <tr><td>Frontend (Vitest)</td><td class="num">11</td><td>Ghép cặp file <code>.in/.out</code> và giải nén <code>.zip</code> khi nhập test case.</td></tr>
+  <tr><td>End-to-end (Playwright)</td><td class="num">3</td><td>Nộp bài đúng → thấy tiến độ trực tiếp rồi "Chấp nhận"; nộp sai → mở gợi ý mức 1 (streaming), mức 2 chỉ mở sau mức 1; hai trình duyệt cùng assignment → bảng xếp hạng cập nhật khi có người AC. Dùng LLM giả lập để kết quả ổn định.</td></tr>
+</table>
+<p><b>CI (GitHub Actions, <code>.github/workflows/ci.yml</code>):</b> mỗi lần push/PR chạy 3 job trên Ubuntu: (1) <code>typecheck</code> toàn bộ workspace, build image sandbox, chạy toàn bộ Vitest với PostgreSQL/Redis service và build frontend; (2) Playwright e2e; (3) build toàn bộ image production bằng <code>docker compose build</code>. Kết quả chạy cục bộ trước khi nộp: <b>215 test Vitest đều đạt</b>, typecheck sạch.</p>
+<h3>Biện pháp bảo mật</h3>
+<ul>
+  <li><b>Xác thực:</b> mật khẩu băm bcrypt; access token JWT 15 phút chỉ giữ trong bộ nhớ; refresh token ngẫu nhiên lưu dạng băm, cookie <code>httpOnly</code> + <code>SameSite=Strict</code> + <code>Secure</code> ở production, xoay vòng mỗi lần dùng — nếu một token đã bị thu hồi được dùng lại, toàn bộ phiên của người đó bị thu hồi (dấu hiệu bị đánh cắp).</li>
+  <li><b>Phân quyền:</b> middleware <code>requireAuth</code> + <code>requireRole</code>, và kiểm tra quyền sở hữu ở tầng service (chỉ tác giả sửa bài, chỉ chủ bài nộp xem code/mở gợi ý, input test ẩn không bao giờ rời server).</li>
+  <li><b>Validate input:</b> mọi body/query đi qua schema Zod dùng chung; giới hạn kích thước body; <code>helmet</code>, CORS chỉ cho origin của web.</li>
+  <li><b>Chống lạm dụng:</b> rate limit trong Redis cho đăng nhập, đăng ký, nộp bài (1/5 giây), chạy thử và gợi ý (20/ngày).</li>
+  <li><b>Quản lý secret:</b> không commit <code>.env</code> (đã có trong <code>.gitignore</code>), chỉ có <code>.env.example</code>; khi chạy bằng Docker Compose mà không cấu hình, JWT secret được sinh ngẫu nhiên lần đầu và lưu trong volume. Log production che header <code>Authorization</code>/<code>Cookie</code> và không bao giờ ghi code của sinh viên.</li>
+  <li><b>Cô lập code người dùng:</b> như mục 5.1; Docker socket chỉ gắn vào container worker.</li>
+</ul>
+<h3>Số liệu hiệu năng</h3>
+<p>Đo đầu-cuối từ lúc gửi <code>POST /submissions</code> đến khi có verdict cuối, trên stack Docker Compose production (Docker Desktop, Windows 11), 10 lần mỗi ngôn ngữ, bài "Tổng hai số" có 6 test (script <code>docs/report/benchJudge.mjs</code>):</p>
+<table>
+  <tr><th>Ngôn ngữ</th><th class="num">Kết quả</th><th class="num">Trung vị</th><th class="num">p95</th><th class="num">Lớn nhất</th></tr>
+  <tr><td>Python 3.12</td><td class="num">10/10 AC</td><td class="num">2,52 s</td><td class="num">4,08 s</td><td class="num">4,08 s</td></tr>
+  <tr><td>JavaScript (Node 20)</td><td class="num">10/10 AC</td><td class="num">2,61 s</td><td class="num">2,90 s</td><td class="num">2,90 s</td></tr>
+  <tr><td>C++17 (gồm biên dịch)</td><td class="num">10/10 AC</td><td class="num">3,29 s</td><td class="num">3,78 s</td><td class="num">3,78 s</td></tr>
+</table>
+<p>Mọi lần chấm đều dưới mục tiêu 10 giây. Chi phí chủ yếu là tạo và hủy container cho mỗi test (khoảng 0,4 giây/test), nên với <code>JUDGE_CONCURRENCY=2</code> hệ thống chấm được ước tính chưa tới 1 bài/giây cho bài 6 test — đủ cho một lớp học, nhưng là nút thắt đầu tiên khi mở rộng (mục 9).</p>
+
+<h2>7. Đánh giá phần AI</h2>
+<p>Nhóm không huấn luyện mô hình riêng mà dùng LLM qua 9router; phần cần đánh giá là <i>mức độ tuân thủ</i> (không lộ lời giải, đúng mức gợi ý). Leak guard được kiểm thử bằng 30 ca kiểm thử gồm các câu trả lời "xấu" (khối code, viết lại hàm, chỉ cách sửa bằng lời — một dạng vi phạm nhóm gặp thực tế khi chạy mô hình thật, mức 1 nêu số dòng, trùng lời giải mẫu) và các câu trả lời hợp lệ (trích đúng 1 dòng code của sinh viên). Trong quá trình thử nghiệm với mô hình thật, <b>3/20 câu trả lời đầu tiên (15%) bị leak guard chặn</b> và được thay bằng bản viết lại hoặc gợi ý mặc định — tức là nếu chỉ dựa vào prompt, cứ khoảng 7 lần gợi ý sẽ có một lần vi phạm quy tắc. Đây là mẫu nhỏ; hướng tiếp theo là xây bộ đánh giá có gán nhãn lớn hơn (mục 9).</p>
+
+<h2>8. Triển khai</h2>
+<ul>
+  <li><b>Chạy bằng một lệnh:</b> <code>docker compose up --build</code> ở thư mục gốc dựng toàn bộ 7 dịch vụ (PostgreSQL, Redis, 3 image sandbox, migrate + seed dữ liệu demo, API, judge-worker, web nginx) rồi mở <code>http://localhost:8080</code>. Không cần cấu hình gì; khi đặt <code>LLM_BASE_URL</code> trong <code>.env</code> thì gợi ý dùng mô hình thật, nếu không thì dùng bộ giả lập.</li>
+  <li><b>Bản deploy:</b> chạy trên home server của nhóm, công khai qua Cloudflare Tunnel tại <span class="fill">[https://judge.hxnos.com]</span>. Lý do không dùng Vercel/Render: hệ thống cần quyền điều khiển Docker daemon để tạo sandbox, điều các nền tảng PaaS miễn phí không cho phép.</li>
+  <li><b>Tài khoản demo:</b> sinh viên <code>sv1@judgehint.local</code>, giảng viên <code>teacher@judgehint.local</code>; mật khẩu <span class="fill">[mật khẩu demo]</span>; mã lớp <code>WEB2026</code>. Dữ liệu seed: 15 bài (3 mức độ khó), 1 lớp, 1 assignment.</li>
+</ul>
+
+<h2>9. Hạn chế và hướng phát triển</h2>
+<ul>
+  <li><b>Một máy chủ duy nhất:</b> nút thắt khi số người dùng tăng 10 lần là judge-worker (CPU) — mỗi test tốn một container. Hướng mở rộng: chạy nhiều worker trên nhiều máy cùng đọc một hàng đợi (kiến trúc đã hỗ trợ), hoặc tái sử dụng container cho các test của cùng một bài nộp.</li>
+  <li><b>Docker socket</b> trao cho worker quyền rất lớn với máy chủ; nên đặt sau <code>docker-socket-proxy</code> chỉ mở các endpoint containers/images, hoặc dùng gVisor/Firecracker để cô lập mạnh hơn.</li>
+  <li><b>Đánh giá AI còn định tính:</b> cần bộ dữ liệu bài nộp sai có gán nhãn để đo tỉ lệ rò rỉ và mức độ hữu ích của gợi ý một cách định lượng, so sánh nhiều mô hình.</li>
+  <li>Chưa có phát hiện đạo văn giữa các bài nộp, chưa hỗ trợ bài có nhiều đáp án đúng (special judge), chưa có thông báo qua email.</li>
+</ul>
+
+<h2>10. Khai báo sử dụng công cụ AI</h2>
+<p>Theo quy định của học phần, nhóm khai báo: <span class="fill">[nhóm điền/sửa cho đúng thực tế]</span></p>
+<table>
+  <tr><th style="width:26%">Công cụ</th><th>Dùng cho phần nào</th></tr>
+  <tr><td>Claude Code (Anthropic)</td><td>Gợi ý và sinh code cho các module backend, judge-worker, frontend; viết test; tìm lỗi; soạn thảo README, cấu hình Docker/CI và bản nháp báo cáo này. Mọi đoạn code đều được thành viên phụ trách đọc lại, chạy thử và chịu trách nhiệm giải thích.</td></tr>
+  <tr><td>LLM qua 9router</td><td>Là một thành phần của sản phẩm (sinh gợi ý cho sinh viên), không dùng để viết code.</td></tr>
+</table>
+
+<h2>11. Phân công</h2>
+<p>Bảng phân công chi tiết có chữ ký xác nhận nộp kèm (<code>docs/phan-cong.md</code>). Tóm tắt:</p>
+<table>
+  <tr><th>Thành viên</th><th>Phụ trách</th><th class="num">Đóng góp</th></tr>
+  <tr><td><span class="fill">[Họ tên 1]</span></td><td>Sandbox Docker, judge-worker, BullMQ, test bảo mật sandbox</td><td class="num"><span class="fill">[ ]%</span></td></tr>
+  <tr><td><span class="fill">[Họ tên 2]</span></td><td>API Express, xác thực/RBAC, Prisma, Socket.IO, bảng xếp hạng, CI/Docker</td><td class="num"><span class="fill">[ ]%</span></td></tr>
+  <tr><td><span class="fill">[Họ tên 3]</span></td><td>Frontend React: trang làm bài, Monaco, real-time, trang giảng viên, biểu đồ</td><td class="num"><span class="fill">[ ]%</span></td></tr>
+  <tr><td><span class="fill">[Họ tên 4]</span></td><td>AI gợi ý: prompt, SSE, leak guard, hạn mức; e2e Playwright; báo cáo</td><td class="num"><span class="fill">[ ]%</span></td></tr>
+</table>
+
+</body>
+</html>

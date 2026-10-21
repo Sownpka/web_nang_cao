@@ -1,0 +1,8 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "api", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "./apps/api", "dev"], "port": 4000 },
+    { "name": "web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "./apps/web", "dev"], "port": 5173 },
+    { "name": "web-alt", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "./apps/web", "exec", "vite", "--port", "5180", "--strictPort"], "port": 5180 }
+  ]
+}

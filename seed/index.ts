@@ -12,7 +12,8 @@ import bcrypt from 'bcryptjs';
 import { prisma, type Role } from '@judgehint/db';
 import { seedProblems } from './problems.js';
 
-const DEMO_PASSWORD = 'judgehint123';
+// A public deployment should set SEED_DEMO_PASSWORD; it only applies when an account is created.
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD || 'judgehint123';
 const DEMO_JOIN_CODE = 'WEB2026';
 const DEMO_ASSIGNMENT_TITLE = 'Bài tập tuần 1';
 

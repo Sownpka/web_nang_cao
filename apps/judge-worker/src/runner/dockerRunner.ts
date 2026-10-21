@@ -123,7 +123,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Connection fields of docker-modem (its typings are not published). */
 interface ModemConnection {
-  socketPath?: string;
+  /** On Linux `socketPath` is a lazy resolver function, so read it through this instead. */
+  getSocketPath(): Promise<string | undefined>;
   host?: string;
   port?: number | string;
 }
@@ -134,11 +135,10 @@ interface ModemConnection {
  * into stdin) or, without a body, never flushes the request headers. Bytes must only be written after
  * the upgrade: anything sent earlier can be dropped.
  */
-function attachStdin(containerId: string): Promise<Socket> {
+async function attachStdin(containerId: string): Promise<Socket> {
   const modem = docker.modem as unknown as ModemConnection;
-  const target = modem.socketPath
-    ? { socketPath: modem.socketPath }
-    : { host: modem.host ?? 'localhost', port: Number(modem.port ?? 2375) };
+  const socketPath = await modem.getSocketPath();
+  const target = socketPath ? { socketPath } : { host: modem.host ?? 'localhost', port: Number(modem.port ?? 2375) };
 
   return new Promise((resolve, reject) => {
     const req = http.request({

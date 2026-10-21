@@ -98,7 +98,8 @@ judgehint/
 ├── prisma/schema.prisma
 ├── docker/
 │   ├── sandbox/             # Dockerfile cho từng ngôn ngữ chấm
-│   └── compose/             # docker-compose.yml, docker-compose.dev.yml
+│   ├── app/                 # Dockerfile + nginx cho production (docker-compose.yml ở thư mục gốc)
+│   └── compose/             # docker-compose.dev.yml (Postgres + Redis cho dev)
 ├── seed/                    # bài mẫu + test case để demo
 └── CLAUDE.md
 ```
@@ -402,7 +403,7 @@ pnpm db:migrate                # prisma migrate dev
 pnpm db:seed
 pnpm test
 pnpm build:sandbox             # build các image trong docker/sandbox
-docker compose -f docker/compose/docker-compose.yml up -d   # production
+docker compose up -d --build  # production (docker-compose.yml ở thư mục gốc)
 ```
 
 ## 15. Deploy (home server)

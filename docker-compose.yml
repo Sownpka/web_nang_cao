@@ -1,0 +1,144 @@
+# Full JudgeHint stack in one command:  docker compose up --build
+# Then open http://localhost:8080 (WEB_PORT). Demo data is seeded into an empty database.
+# Values like LLM_BASE_URL are read from .env if present; nothing here is required to start.
+name: judgehint
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/app/Dockerfile
+    target: app
+  image: judgehint/app:local
+  restart: unless-stopped
+  environment: &app-env
+    NODE_ENV: production
+    DATABASE_URL: postgresql://judgehint:${POSTGRES_PASSWORD:-judgehint}@postgres:5432/judgehint
+    REDIS_URL: redis://redis:6379
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: judgehint
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-judgehint}
+      POSTGRES_DB: judgehint
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judgehint"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Build-only services: they produce the sandbox images the worker starts, then exit.
+  sandbox-python:
+    build: docker/sandbox/python
+    image: judgehint/py:3.12
+    command: ["true"]
+    restart: "no"
+  sandbox-node:
+    build: docker/sandbox/node
+    image: judgehint/node:20
+    command: ["true"]
+    restart: "no"
+  sandbox-cpp:
+    build: docker/sandbox/gcc
+    image: judgehint/gcc:13
+    command: ["true"]
+    restart: "no"
+
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *app-env
+      SEED_DEMO: ${SEED_DEMO:-auto}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    command: ["api"]
+    environment:
+      <<: *app-env
+      API_PORT: "4000"
+      WEB_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      # Empty secrets are generated once by the entrypoint and kept in the "secrets" volume.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      # Empty LLM_BASE_URL selects the built-in mock that streams a sample hint.
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-60000}
+      HINT_DAILY_LIMIT: ${HINT_DAILY_LIMIT:-20}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - secrets:/secrets
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  judge-worker:
+    <<: *app
+    command: ["worker"]
+    environment:
+      <<: *app-env
+      JUDGE_CONCURRENCY: ${JUDGE_CONCURRENCY:-2}
+    # Only the worker talks to the Docker daemon (CLAUDE.md §3); never mount this into api or web.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      sandbox-python:
+        condition: service_completed_successfully
+      sandbox-node:
+        condition: service_completed_successfully
+      sandbox-cpp:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      target: web
+    image: judgehint/web:local
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  secrets:
